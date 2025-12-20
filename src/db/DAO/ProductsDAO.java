@@ -12,9 +12,9 @@ import db.DTO.ProductsDTO;
 
 public class ProductsDAO {
 
-    private static final String DB_URL =
-    private static final String DB_ID = 
-    private static final String DB_PASSWORD = 
+    private static final String DB_URL ="jdbc:mysql://localhost:3306/recycle?serverTimezone=UTC&characterEncoding=UTF-8";
+    private static final String DB_ID = "root";
+    private static final String DB_PASSWORD = "fjf0301!";
 
     private Connection getConnection() throws SQLException {
         try {
