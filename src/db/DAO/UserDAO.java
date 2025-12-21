@@ -134,7 +134,7 @@ public class UserDAO {
         }
     }
 
-    // [7-1] 포인트 업데이트 (트랜잭션용 - Connection 전달받음)
+    // [7-1] 포인트 업데이트 (트랜잭션용)
     public void updateUserPoint(Connection conn, UserDTO user) throws SQLException {
         String sql = "UPDATE " + USERS_TABLE + " SET BALANCE_POINTS = ?, TOTAL_POINTS = ? WHERE USER_ID = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -146,8 +146,7 @@ public class UserDAO {
     }
 
     /**
-     * [8] 관리자용: 사용자 정보 통합 수정 (AdminWindow 연동용)
-     * 닉네임, 보유 포인트, 관리자 권한을 한 번에 수정합니다.
+     * [8] 관리자용: 사용자 정보 통합 수정
      */
     public boolean updateUserByAdmin(UserDTO user) throws SQLException {
         String sql = "UPDATE " + USERS_TABLE + 
@@ -163,7 +162,31 @@ public class UserDAO {
         }
     }
 
-    // [9] 포인트 추가 (트랜잭션용)
+    /**
+     * [9] 관리자 대시보드용: 총 회원 수 조회
+     */
+    public int getTotalUserCount() throws SQLException {
+        String sql = "SELECT COUNT(*) FROM " + USERS_TABLE;
+        try (Connection conn = RecycleDB.connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            return rs.next() ? rs.getInt(1) : 0;
+        }
+    }
+
+    /**
+     * [10] 관리자 대시보드용: 시스템 내 유통 중인 총 포인트 합계 조회
+     */
+    public int getTotalSystemPoints() throws SQLException {
+        String sql = "SELECT SUM(BALANCE_POINTS) FROM " + USERS_TABLE;
+        try (Connection conn = RecycleDB.connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            return rs.next() ? rs.getInt(1) : 0;
+        }
+    }
+
+    // [11] 포인트 추가 (트랜잭션용)
     public void addPointsToUser(Connection conn, String userID, int points) throws SQLException {
         String sql = "UPDATE " + USERS_TABLE + 
                      " SET BALANCE_POINTS = BALANCE_POINTS + ?, TOTAL_POINTS = TOTAL_POINTS + ? WHERE USER_ID = ?";
@@ -175,7 +198,7 @@ public class UserDAO {
         }
     }
 
-    // [10] 전체 랭킹 조회 
+    // [12] 전체 랭킹 조회 
     public List<RankingDTO> getAllUserRankings() throws SQLException {
         String sql = "SELECT USER_ID, NICKNAME, TOTAL_POINTS FROM " + USERS_TABLE + 
                      " ORDER BY TOTAL_POINTS DESC, USER_ID ASC";
@@ -194,9 +217,7 @@ public class UserDAO {
         return rankingList;
     }
 
-    /**
-     * [11] 회원 탈퇴 (반환형 boolean으로 수정)
-     */
+    // [13] 회원 탈퇴
     public boolean deleteUser(String userId) throws SQLException {
         String sql = "DELETE FROM " + USERS_TABLE + " WHERE USER_ID = ?";
         try (Connection conn = RecycleDB.connect();

@@ -15,7 +15,7 @@ public class UserDTO {
     // [1] 기본 생성자
     public UserDTO() {}
 
-    // [2] 필수 필드 위주의 생성자
+    // [2] 최소 정보 생성자 (회원가입/테스트용)
     public UserDTO(String userId, String nickname) {
         this.userId = userId;
         this.nickname = nickname;
@@ -49,7 +49,8 @@ public class UserDTO {
 
     /**
      * 포인트를 소비(상품 구매 등)했을 때 호출
-     * @return 구매 가능 여부 (잔액이 충분하면 true)
+     * @param points 차감할 포인트 (0보다 커야 함)
+     * @return 차감 성공 여부 (잔액이 부족하거나 입력값이 잘못되면 false)
      */
     public boolean spendPoints(int points) {
         if (points > 0 && this.balancePoints >= points) {
@@ -60,10 +61,17 @@ public class UserDTO {
     }
 
     /**
-     * 관리자 권한 여부를 문자열로 반환 (UI 테이블 표시용)
+     * 관리자 권한 여부를 문자열로 반환 (UI 테이블 및 라벨 표시용)
      */
     public String getRoleString() {
         return this.isAdmin ? "관리자" : "일반회원";
+    }
+
+    /**
+     * 잔여 포인트가 특정 금액 이하인지 확인 (관리자 대시보드 경고용 등)
+     */
+    public boolean hasLowBalance(int threshold) {
+        return this.balancePoints <= threshold;
     }
 
     // --- Getter & Setter ---
@@ -75,13 +83,20 @@ public class UserDTO {
     public void setNickname(String nickname) { this.nickname = nickname; }
 
     public int getBalancePoints() { return balancePoints; }
-    public void setBalancePoints(int balancePoints) { this.balancePoints = balancePoints; }
+    public void setBalancePoints(int balancePoints) { 
+        // 포인트는 음수가 될 수 없도록 방어 코드 추가
+        this.balancePoints = Math.max(0, balancePoints); 
+    }
 
     public int getTotalPoints() { return totalPoints; }
-    public void setTotalPoints(int totalPoints) { this.totalPoints = totalPoints; }
+    public void setTotalPoints(int totalPoints) { 
+        this.totalPoints = Math.max(0, totalPoints); 
+    }
  
     public int getAttendanceStreak() { return attendanceStreak; }
-    public void setAttendanceStreak(int attendanceStreak) { this.attendanceStreak = attendanceStreak; }
+    public void setAttendanceStreak(int attendanceStreak) { 
+        this.attendanceStreak = Math.max(0, attendanceStreak); 
+    }
     
     public boolean isAdmin() { return isAdmin; }
     public void setAdmin(boolean isAdmin) { this.isAdmin = isAdmin; }
@@ -95,7 +110,7 @@ public class UserDTO {
     }
 
     /**
-     * 현재 객체의 깊은 복사본을 생성합니다.
+     * 현재 객체의 깊은 복사본을 생성 (수정 시 원본 보호용)
      */
     public UserDTO copy() {
         return new UserDTO(userId, nickname, balancePoints, totalPoints, attendanceStreak, isAdmin);

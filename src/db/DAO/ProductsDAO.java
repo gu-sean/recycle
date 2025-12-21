@@ -19,7 +19,6 @@ public class ProductsDAO {
 
     /**
      * [0] 테이블 초기화
-     * 추가된 3가지 필드(STOCK, IMAGE_PATH, DESCRIPTION)를 포함하여 테이블을 생성합니다.
      */
     public static void initializeDatabase() {
         String sql = "CREATE TABLE IF NOT EXISTS PRODUCTS (" +
@@ -28,7 +27,7 @@ public class ProductsDAO {
                      "  REQUIRED_POINTS INT NOT NULL," +
                      "  STOCK INT DEFAULT 0," +                // 재고 필드
                      "  IMAGE_PATH VARCHAR(255)," +            // 이미지 경로 필드
-                     "  DESCRIPTION TEXT," +                   // 상세 설명 필드
+                     "  DESCRIPTION TEXT," +                    // 상세 설명 필드
                      "  PRIMARY KEY (PRODUCT_ID)" +
                      ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
 
@@ -43,7 +42,6 @@ public class ProductsDAO {
 
     /**
      * [1] 전체 상품 목록 조회
-     * 이름순(ASC)으로 정렬하여 모든 상세 정보를 포함한 리스트를 반환합니다.
      */
     public List<ProductsDTO> getAllProducts() {
         List<ProductsDTO> list = new ArrayList<>();
@@ -64,7 +62,6 @@ public class ProductsDAO {
 
     /**
      * [2] 특정 상품 상세 조회
-     * 구매나 상세 페이지 진입 시 상품 정보를 개별적으로 가져올 때 사용합니다.
      */
     public ProductsDTO getProductById(String productId) throws SQLException {
         String sql = "SELECT * FROM PRODUCTS WHERE PRODUCT_ID = ?";
@@ -84,7 +81,6 @@ public class ProductsDAO {
 
     /**
      * [3] 관리자 기능: 새 상품 등록
-     * UUID를 활용하여 8자리의 고유 아이디를 생성하고 저장합니다.
      */
     public boolean insertProduct(ProductsDTO product) throws SQLException {
         String sql = "INSERT INTO PRODUCTS (PRODUCT_ID, PRODUCT_NAME, REQUIRED_POINTS, STOCK, IMAGE_PATH, DESCRIPTION) " +
@@ -93,8 +89,10 @@ public class ProductsDAO {
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
-            // 고유 식별자 생성 (중복 방지)
-            String uniqueID = UUID.randomUUID().toString().substring(0, 8);
+            // 고유 식별자 생성 (이미 존재하지 않는 경우에만 새로 생성)
+            String uniqueID = (product.getProductId() == null || product.getProductId().isEmpty()) 
+                              ? UUID.randomUUID().toString().substring(0, 8) 
+                              : product.getProductId();
             
             pstmt.setString(1, uniqueID);
             pstmt.setString(2, product.getProductName());
@@ -142,6 +140,32 @@ public class ProductsDAO {
             
             pstmt.setString(1, productId);
             return pstmt.executeUpdate() > 0;
+        }
+    }
+
+    /**
+     * [6] 관리자 대시보드용: 품절 임박 상품 수 조회 (재고 5개 미만)
+     */
+    public int getLowStockCount(int threshold) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM PRODUCTS WHERE STOCK < ?";
+        try (Connection conn = RecycleDB.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, threshold);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
+    /**
+     * [7] 관리자 대시보드용: 전체 등록된 상품 종수 조회
+     */
+    public int getTotalProductCount() throws SQLException {
+        String sql = "SELECT COUNT(*) FROM PRODUCTS";
+        try (Connection conn = RecycleDB.connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            return rs.next() ? rs.getInt(1) : 0;
         }
     }
 

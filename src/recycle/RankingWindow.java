@@ -2,11 +2,11 @@ package recycle;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 
 import recycle.RankingManager.RankingEntry;
@@ -14,24 +14,25 @@ import recycle.RankingManager.RankingEntry;
 public class RankingWindow extends JPanel {
 
     private final String currentUserId;
-
     private recycle.RankingManager manager;
     private JPanel rankListPanel;
     private JLabel infoLabel;
     private int userCurrentPoints;
 
-    // UI에 필요한 상수
-    private static final Font TITLE_FONT = new Font("맑은 고딕", Font.BOLD, 30);
-    private static final Font LABEL_FONT = new Font("맑은 고딕", Font.PLAIN, 16);
-    private static final Color[] RANK_COLORS = {
-        new Color(255, 223, 0),
-        new Color(192, 192, 192),
-        new Color(205, 127, 50),
-        Color.WHITE,
-        Color.WHITE
-    };
+    // --- 네온 다크 퍼플 테마 색상 ---
+    private static final Color BG_DARK = new Color(20, 15, 40);
+    private static final Color POINT_PURPLE = new Color(150, 100, 255);
+    private static final Color POINT_CYAN = new Color(0, 255, 240);
+    private static final Color CARD_BG = new Color(35, 30, 70);
     
-    // 최대 랭킹 수
+    // 랭킹 메달 색상 (금, 은, 동, 나머지)
+    private static final Color[] RANK_MEDAL_COLORS = {
+        new Color(255, 215, 0),  // Gold
+        new Color(192, 192, 192), // Silver
+        new Color(205, 127, 50),  // Bronze
+        new Color(180, 180, 210)  // Default
+    };
+
     private static final int MAX_RANK_DISPLAY = 5; 
 
     public RankingWindow(String userId) {
@@ -43,37 +44,45 @@ public class RankingWindow extends JPanel {
             System.err.println("랭킹 관리자 초기화 실패: " + e.getMessage());
         }
 
-        setLayout(new BorderLayout(10, 10));
-        setBorder(new EmptyBorder(20, 20, 20, 20));
+        setLayout(new BorderLayout(0, 20));
+        setBackground(BG_DARK);
+        setBorder(new EmptyBorder(30, 40, 30, 40));
 
-        JLabel titleLabel = new JLabel("분리수거 포인트 랭킹", SwingConstants.CENTER);
-        titleLabel.setFont(TITLE_FONT);
+        // [상단 타이틀]
+        JLabel titleLabel = new JLabel("TOP 5 랭킹 보드", SwingConstants.CENTER);
+        titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 32));
+        titleLabel.setForeground(POINT_CYAN);
         add(titleLabel, BorderLayout.NORTH);
 
+        // [중앙 랭킹 리스트]
         rankListPanel = new JPanel();
         rankListPanel.setLayout(new BoxLayout(rankListPanel, BoxLayout.Y_AXIS));
+        rankListPanel.setOpaque(false);
+
         JScrollPane scrollPane = new JScrollPane(rankListPanel);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.setBorder(null);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
         add(scrollPane, BorderLayout.CENTER);
 
-        // [내 정보] 레이블 설정 및 클릭 이벤트 추가
-        infoLabel = new JLabel("<html><p align='center'>[내 정보] 랭킹 정보를 로드 중입니다...</p></html>", SwingConstants.CENTER);
-        infoLabel.setFont(LABEL_FONT);
-        infoLabel.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(Color.LIGHT_GRAY, 1),
-            BorderFactory.createEmptyBorder(10, 10, 10, 10)
-        ));
-        infoLabel.setBackground(new Color(240, 248, 255));
+        // [하단 내 정보 영역]
+        infoLabel = new JLabel("", SwingConstants.CENTER);
+        infoLabel.setFont(new Font("맑은 고딕", Font.BOLD, 16));
+        infoLabel.setForeground(Color.WHITE);
         infoLabel.setOpaque(true);
-        infoLabel.setCursor(new Cursor(Cursor.HAND_CURSOR)); // 마우스 올리면 손가락 모양
+        infoLabel.setBackground(BG_LIGHT_PURPLE()); // 커스텀 배경색
+        infoLabel.setBorder(new LineBorder(POINT_PURPLE, 2, true));
+        infoLabel.setPreferredSize(new Dimension(0, 80));
+        infoLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
         infoLabel.setToolTipText("클릭하면 마이페이지가 열립니다.");
         
-        // 클릭 시 마이페이지 팝업 열기
         infoLabel.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent e) {
-                openMyPage();
-            }
+            public void mouseClicked(MouseEvent e) { openMyPage(); }
+            @Override
+            public void mouseEntered(MouseEvent e) { infoLabel.setBorder(new LineBorder(POINT_CYAN, 2, true)); }
+            @Override
+            public void mouseExited(MouseEvent e) { infoLabel.setBorder(new LineBorder(POINT_PURPLE, 2, true)); }
         });
         
         add(infoLabel, BorderLayout.SOUTH);
@@ -81,11 +90,11 @@ public class RankingWindow extends JPanel {
         loadRankingList();
     }
 
-    /**
-     * 마이페이지 팝업창을 띄우는 메서드
-     */
+    private Color BG_LIGHT_PURPLE() {
+        return new Color(50, 45, 90);
+    }
+
     private void openMyPage() {
-        // 현재 RankingWindow가 소속된 최상위 프레임을 찾음
         Window parentWindow = SwingUtilities.getWindowAncestor(this);
         if (parentWindow instanceof Frame) {
             MyPageWindow myPage = new MyPageWindow((Frame) parentWindow, currentUserId);
@@ -99,8 +108,7 @@ public class RankingWindow extends JPanel {
 
     public void loadRankingList() {
         if (manager == null) {
-            System.err.println("RankingManager가 초기화되지 않았습니다. 랭킹 로드 불가.");
-            infoLabel.setText("<html><p align='center'>[내 정보] DB 연결 오류</p></html>");
+            infoLabel.setText("<html><center>데이터베이스 연결을 확인해주세요.</center></html>");
             return;
         }
 
@@ -112,8 +120,7 @@ public class RankingWindow extends JPanel {
             updateMyRank(rankingList); 
 
         } catch (SQLException e) {
-            System.err.println("랭킹 정보 로드 중 DB 오류: " + e.getMessage());
-            infoLabel.setText("<html><p align='center'>[내 정보] 랭킹 로드 오류</p></html>");
+            infoLabel.setText("<html><center>랭킹 로드 중 오류 발생</center></html>");
         }
     }
 
@@ -121,17 +128,14 @@ public class RankingWindow extends JPanel {
         rankListPanel.removeAll();
 
         if (rankingList.isEmpty()) {
-            JLabel noRank = new JLabel("랭킹 정보가 없습니다.", SwingConstants.CENTER);
-            noRank.setFont(LABEL_FONT);
+            JLabel noRank = new JLabel("현재 집계된 데이터가 없습니다.", SwingConstants.CENTER);
+            noRank.setFont(new Font("맑은 고딕", Font.PLAIN, 18));
+            noRank.setForeground(Color.GRAY);
             rankListPanel.add(noRank);
         } else {
             for (int i = 0; i < rankingList.size(); i++) {
-                RankingEntry entry = rankingList.get(i);
-                int rank = i + 1;
-                rankListPanel.add(createRankItemPanel(rank, entry));
-                if (i < rankingList.size() - 1) { 
-                    rankListPanel.add(new JSeparator(SwingConstants.HORIZONTAL));
-                }
+                rankListPanel.add(createRankItemPanel(i + 1, rankingList.get(i)));
+                rankListPanel.add(Box.createVerticalStrut(10)); // 아이템 간 간격
             }
         }
         rankListPanel.revalidate();
@@ -139,61 +143,65 @@ public class RankingWindow extends JPanel {
     }
 
     private JPanel createRankItemPanel(int rank, RankingEntry entry) {
-        JPanel itemPanel = new JPanel(new BorderLayout(15, 5));
-        itemPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
-        Color bgColor = Color.WHITE;
-        if (rank <= RANK_COLORS.length) { 
-            bgColor = RANK_COLORS[rank - 1];
+        JPanel itemPanel = new JPanel(new BorderLayout(20, 0));
+        itemPanel.setMaximumSize(new Dimension(800, 70));
+        itemPanel.setPreferredSize(new Dimension(0, 70));
+        itemPanel.setBackground(CARD_BG);
+        
+        // 내 순위인 경우 강조
+        boolean isMe = entry.getUserId().equals(currentUserId);
+        if (isMe) {
+            itemPanel.setBorder(new LineBorder(POINT_CYAN, 2));
+        } else {
+            itemPanel.setBorder(new LineBorder(new Color(60, 55, 100), 1));
         }
-        itemPanel.setBackground(bgColor);
 
-        JLabel rankLabel = new JLabel(String.valueOf(rank));
-        rankLabel.setFont(new Font("맑은 고딕", Font.BOLD, 20));
-        rankLabel.setPreferredSize(new Dimension(30, 20));
-        rankLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        // [순위 표시]
+        JLabel rankLabel = new JLabel(String.valueOf(rank), SwingConstants.CENTER);
+        rankLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        rankLabel.setPreferredSize(new Dimension(60, 0));
+        Color medalColor = (rank <= 3) ? RANK_MEDAL_COLORS[rank-1] : RANK_MEDAL_COLORS[3];
+        rankLabel.setForeground(medalColor);
         itemPanel.add(rankLabel, BorderLayout.WEST);
 
+        // [닉네임]
         JLabel nicknameLabel = new JLabel(entry.getNickname());
         nicknameLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
+        nicknameLabel.setForeground(isMe ? POINT_CYAN : Color.WHITE);
         itemPanel.add(nicknameLabel, BorderLayout.CENTER);
 
+        // [포인트]
         JLabel pointsLabel = new JLabel(String.format("%,d P", entry.getBalancePoints()));
         pointsLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
-        pointsLabel.setForeground(new Color(0, 100, 200));
+        pointsLabel.setForeground(POINT_PURPLE);
+        pointsLabel.setBorder(new EmptyBorder(0, 0, 0, 20));
         itemPanel.add(pointsLabel, BorderLayout.EAST);
 
-        if (entry.getUserId().equals(currentUserId)) {
-            itemPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(0, 150, 0), 2),
-                BorderFactory.createEmptyBorder(8, 8, 8, 8)
-            ));
-        }
         return itemPanel;
     }
 
     public void updateMyRank(List<RankingEntry> rankingList) {
-        if (manager == null) {
-            infoLabel.setText("<html><p align='center'>[내 정보] DB 연결 오류</p></html>");
-            this.userCurrentPoints = 0;
-            return;
-        }
+        if (manager == null) return;
 
         String myInfoHtml = manager.getMyRankInfo(currentUserId, rankingList);
-        infoLabel.setText(myInfoHtml);
+        
+        // HTML 스타일을 다크 테마에 맞게 조정 (RankingManager의 반환값에 따라 필요시 가공)
+        String styledInfo = myInfoHtml
+            .replace("color: blue", "color: #00fff0") // Cyan
+            .replace("color: red", "color: #ff5555"); // Red
+        
+        infoLabel.setText("<html><center>" + styledInfo + "</center></html>");
 
         try {
+            // 포인트 추출 로직 유지
             int start = myInfoHtml.indexOf("현재 포인트: <strong>") + "현재 포인트: <strong>".length();
             int end = myInfoHtml.indexOf("점</strong>", start);
             if (start > 0 && end > start) {
                 String pointStr = myInfoHtml.substring(start, end).trim().replaceAll(",", "");
                 this.userCurrentPoints = Integer.parseInt(pointStr);
-            } else {
-                this.userCurrentPoints = 0;
             }
         } catch (Exception e) {
-             System.err.println("MyRank 포인트 파싱 오류: " + e.getMessage());
-             this.userCurrentPoints = 0;
+            this.userCurrentPoints = 0;
         }
     }
 }

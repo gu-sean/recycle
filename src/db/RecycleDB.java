@@ -8,9 +8,9 @@ import javax.swing.JOptionPane;
 
 public class RecycleDB {
 
-    private static final String DB_URL =
-    private static final String DB_USER = 
-    private static final String DB_PASSWORD = 
+    private static final String DB_URL ="jdbc:mysql://localhost:3306/recycle?serverTimezone=UTC&characterEncoding=UTF-8";
+    private static final String DB_USER = "root";
+    private static final String DB_PASSWORD = "fjf0301!";
 
   
     public static Connection connect() throws SQLException {
