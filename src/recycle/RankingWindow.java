@@ -3,6 +3,8 @@ package recycle;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,6 +56,7 @@ public class RankingWindow extends JPanel {
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         add(scrollPane, BorderLayout.CENTER);
 
+        // [내 정보] 레이블 설정 및 클릭 이벤트 추가
         infoLabel = new JLabel("<html><p align='center'>[내 정보] 랭킹 정보를 로드 중입니다...</p></html>", SwingConstants.CENTER);
         infoLabel.setFont(LABEL_FONT);
         infoLabel.setBorder(BorderFactory.createCompoundBorder(
@@ -62,14 +65,34 @@ public class RankingWindow extends JPanel {
         ));
         infoLabel.setBackground(new Color(240, 248, 255));
         infoLabel.setOpaque(true);
+        infoLabel.setCursor(new Cursor(Cursor.HAND_CURSOR)); // 마우스 올리면 손가락 모양
+        infoLabel.setToolTipText("클릭하면 마이페이지가 열립니다.");
+        
+        // 클릭 시 마이페이지 팝업 열기
+        infoLabel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                openMyPage();
+            }
+        });
+        
         add(infoLabel, BorderLayout.SOUTH);
 
         loadRankingList();
     }
 
     /**
-     * 외부에서 호출하여 랭킹 목록과 내 정보를 새로 고칩니다.
+     * 마이페이지 팝업창을 띄우는 메서드
      */
+    private void openMyPage() {
+        // 현재 RankingWindow가 소속된 최상위 프레임을 찾음
+        Window parentWindow = SwingUtilities.getWindowAncestor(this);
+        if (parentWindow instanceof Frame) {
+            MyPageWindow myPage = new MyPageWindow((Frame) parentWindow, currentUserId);
+            myPage.setVisible(true);
+        }
+    }
+
     public void refreshRanking() {
         loadRankingList();
     }
@@ -82,16 +105,10 @@ public class RankingWindow extends JPanel {
         }
 
         try {
-
-            // DB에서 최신 랭킹 정보를 다시 로드
             List<RankingManager.RankingEntry> rankingList = manager.getSortedRankingList();
-            
-            //  상위 5위까지만 표시하도록 리스트를 제한
             List<RankingManager.RankingEntry> topRankingList = rankingList.subList(0, Math.min(rankingList.size(), MAX_RANK_DISPLAY));
             
             updateRankListUI(topRankingList);
-
-  
             updateMyRank(rankingList); 
 
         } catch (SQLException e) {
@@ -99,7 +116,6 @@ public class RankingWindow extends JPanel {
             infoLabel.setText("<html><p align='center'>[내 정보] 랭킹 로드 오류</p></html>");
         }
     }
-
 
     private void updateRankListUI(List<RankingEntry> rankingList) {
         rankListPanel.removeAll();
@@ -109,31 +125,24 @@ public class RankingWindow extends JPanel {
             noRank.setFont(LABEL_FONT);
             rankListPanel.add(noRank);
         } else {
-            // for 루프는 이미 상위 5위로 제한된 리스트를 순회
             for (int i = 0; i < rankingList.size(); i++) {
                 RankingEntry entry = rankingList.get(i);
-                int rank = i + 1; // 1위부터 시작
-
+                int rank = i + 1;
                 rankListPanel.add(createRankItemPanel(rank, entry));
-
-            
                 if (i < rankingList.size() - 1) { 
                     rankListPanel.add(new JSeparator(SwingConstants.HORIZONTAL));
                 }
             }
         }
-
         rankListPanel.revalidate();
         rankListPanel.repaint();
     }
-
 
     private JPanel createRankItemPanel(int rank, RankingEntry entry) {
         JPanel itemPanel = new JPanel(new BorderLayout(15, 5));
         itemPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         Color bgColor = Color.WHITE;
-        // 랭킹 순서에 따라 색상 적용. RANK_COLORS는 여전히 1~3위 색상을 포함.
         if (rank <= RANK_COLORS.length) { 
             bgColor = RANK_COLORS[rank - 1];
         }
@@ -160,10 +169,8 @@ public class RankingWindow extends JPanel {
                 BorderFactory.createEmptyBorder(8, 8, 8, 8)
             ));
         }
-
         return itemPanel;
     }
-
 
     public void updateMyRank(List<RankingEntry> rankingList) {
         if (manager == null) {
@@ -174,7 +181,6 @@ public class RankingWindow extends JPanel {
 
         String myInfoHtml = manager.getMyRankInfo(currentUserId, rankingList);
         infoLabel.setText(myInfoHtml);
-
 
         try {
             int start = myInfoHtml.indexOf("현재 포인트: <strong>") + "현재 포인트: <strong>".length();

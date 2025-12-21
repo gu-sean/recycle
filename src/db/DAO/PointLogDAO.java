@@ -8,7 +8,8 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
-import db.DTO.PointLogDTO; // 포인트 내역 데이터를 담을 DTO 클래스가 필요합니다.
+import db.DTO.PointLogDTO;
+import db.RecycleDB;
 
 public class PointLogDAO {
     
@@ -39,6 +40,7 @@ public class PointLogDAO {
      * 차감 로그 전용 (상품 구매 등)
      */
     public void insertSpendLog(Connection conn, String userId, String productName, int points) throws SQLException {
+        // 포인트가 양수로 들어오더라도 DB에는 음수로 저장되도록 처리
         int spendPoints = (points > 0) ? -points : points;
         insertPointLog(conn, userId, "SPEND", "상품 구매: " + productName, spendPoints);
     }
@@ -51,16 +53,13 @@ public class PointLogDAO {
     }
 
     /**
-     * [추가된 기능] 특정 사용자의 모든 포인트 내역 조회
-     * @param conn DB 연결 객체
-     * @param userId 조회할 사용자 ID
-     * @return 포인트 내역 리스트
+     * [수정] MyPageWindow에서 호출하는 메서드 이름으로 통일
+     * 특정 사용자의 포인트 내역을 최신순으로 가져옵니다.
      */
- // PointLogDAO.java 내부
-    public List<PointLogDTO> getPointLogsByUserId(Connection conn, String userId) throws SQLException {
+    public List<PointLogDTO> getPointLogs(Connection conn, String userId) throws SQLException {
         List<PointLogDTO> list = new ArrayList<>();
         
-        // SELECT문에 LOG_ID가 포함되어 있는지 확인!
+        // LOG_ID를 포함하여 모든 컬럼을 명확하게 조회
         String sql = "SELECT LOG_ID, USER_ID, TYPE, DETAIL, POINT, TIMESTAMP FROM " + POINT_LOGS_TABLE + 
                      " WHERE USER_ID = ? ORDER BY TIMESTAMP DESC";
 
@@ -68,7 +67,6 @@ public class PointLogDAO {
             pstmt.setString(1, userId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    // 여기서 rs.getInt("LOG_ID")를 호출할 때 오류가 나지 않아야 합니다.
                     PointLogDTO log = new PointLogDTO(
                         rs.getInt("LOG_ID"),
                         rs.getString("USER_ID"),
@@ -85,7 +83,7 @@ public class PointLogDAO {
     }
     
     /**
-     * 테이블 초기화 SQL
+     * 테이블 초기화 SQL (앱 실행 시 최초 1회 호출 권장)
      */
     public static void initializeDatabase() {
         String createTableSQL = "CREATE TABLE IF NOT EXISTS " + POINT_LOGS_TABLE + " ("
@@ -98,5 +96,12 @@ public class PointLogDAO {
                 + "PRIMARY KEY (`LOG_ID`),"
                 + "KEY `USER_ID_idx` (`USER_ID`)"
                 + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        
+        try (Connection conn = RecycleDB.connect();
+             PreparedStatement pstmt = conn.prepareStatement(createTableSQL)) {
+            pstmt.execute();
+        } catch (SQLException e) {
+            System.err.println("테이블 초기화 중 오류: " + e.getMessage());
+        }
     }
 }

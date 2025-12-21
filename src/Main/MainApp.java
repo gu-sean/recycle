@@ -12,9 +12,14 @@ import recycle.LoginPanel;
 import recycle.RecyclePanel;
 import recycle.Guide;
 import recycle.QuizPanel;
-import recycle.RankingWindow;
-import recycle.ProductWindow; 
+import recycle.RankingWindow; // Window에서 Panel로 명칭/역할 변경 권장
+import recycle.ProductWindow; // Window에서 Panel로 명칭/역할 변경 권장
+import recycle.AdminWindow;   // Window에서 Panel로 명칭/역할 변경 권장
 
+/**
+ * 애플리케이션의 메인 프레임워크
+ * 사용자의 권한(일반/관리자)에 따라 탭 구성을 다르게 설정합니다.
+ */
 public class MainApp extends JFrame {
 
     private final UserDTO currentUser; 
@@ -22,90 +27,133 @@ public class MainApp extends JFrame {
     public MainApp(UserDTO user) { 
         this.currentUser = user; 
         
-        // 제목창에 사용자 정보 표시
-        setTitle("분리수거 포인트 서비스 - [사용자: " + user.getNickname() + " (" + user.getUserId() + ")]");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1000, 700); // 탭 내용이 많으므로 높이를 조금 더 키웠습니다.
-        setMinimumSize(new Dimension(800, 600));
-        setLocationRelativeTo(null);
+        // 1. 프레임 기본 설정
+        setupFrame();
         
-        // 탭 인터페이스 생성 및 추가
+        // 2. 탭 인터페이스 생성 및 배치
         JTabbedPane tabbedPane = createTabbedPane();
         add(tabbedPane, BorderLayout.CENTER);
 
+        // 3. 화면 표시
         setVisible(true); 
     }
     
+    /**
+     * 프레임의 제목, 크기, 위치 등 기본 설정
+     */
+    private void setupFrame() {
+        String title = "EcoCycle - " + currentUser.getNickname();
+        if (currentUser.isAdmin()) {
+            title += " [관리자 모드]";
+        }
+        setTitle(title);
+        
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(1100, 800); // 넉넉한 공간 확보
+        setMinimumSize(new Dimension(900, 700));
+        setLocationRelativeTo(null); // 화면 중앙 배치
+    }
+    
+    /**
+     * 각 기능별 패널을 탭으로 구성
+     */
     private JTabbedPane createTabbedPane() {
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.setFont(new Font("맑은 고딕", Font.BOLD, 14));
 
         try {
-            // 1. 포인트 랭킹 패널 먼저 생성 (새로고침 기능을 다른 패널에 전달하기 위함)
+            // [데이터 동기화를 위한 패널 인스턴스 미리 생성]
+            
+            // 랭킹 패널
             RankingWindow rankingPanel = new RankingWindow(currentUser.getUserId()); 
             
-            // ⭐ 실시간 랭킹 업데이트를 위한 콜백(Runnable) 정의
-            Runnable rankUpdateCallback = () -> {
-                System.out.println("랭킹 업데이트 콜백 실행...");
-                rankingPanel.refreshRanking();
+            // 상점/상품 패널
+            ProductWindow productPanel = new ProductWindow(currentUser);
+
+            /**
+             * ⭐ 새로고침 콜백(Callback)
+             * 분리수거 완료, 퀴즈 보상 획득, 상품 구매 등 포인트 변동 시
+             * 다른 탭의 데이터(랭킹, 상점 잔액 등)를 즉시 갱신합니다.
+             */
+            Runnable refreshCallback = () -> {
+                System.out.println("[시스템] 데이터 새로고침 요청됨.");
+                rankingPanel.refreshRanking(); // 랭킹 리스트 갱신
+                productPanel.loadProducts();   // 상품 목록 및 내 포인트 표시 갱신
             };
             
-            // 2. 분리수거 및 기록 탭 (분리수거 성공 시 랭킹 갱신)
-            RecyclePanel recyclePanel = new RecyclePanel(currentUser.getUserId(), rankUpdateCallback); 
-            tabbedPane.addTab("분리수거 및 기록", new JScrollPane(recyclePanel));
+            // --- 탭 구성 시작 ---
             
-            // 3. 분리수거 가이드 탭
-            Guide guidePanel = new Guide();
-            tabbedPane.addTab("분리수거 가이드", guidePanel);
+            // 1. 분리수거 및 활동 기록 (스크롤 적용)
+            tabbedPane.addTab("분리수거 및 기록", new JScrollPane(new RecyclePanel(currentUser.getUserId(), refreshCallback)));
             
-            // 4. 분리수거 퀴즈 탭 (⭐ 수정: 퀴즈 정답 시 랭킹 실시간 반영을 위해 콜백 전달)
-            QuizPanel quizPanel = new QuizPanel(currentUser, rankUpdateCallback); 
-            tabbedPane.addTab("분리수거 퀴즈", quizPanel);
+            // 2. 분리수거 가이드
+            tabbedPane.addTab("분리수거 가이드", new Guide());
             
-            // 5. 상품 구매/포인트 교환 탭 
-            ProductWindow productPanel = new ProductWindow(currentUser);
-            tabbedPane.addTab("상품 구매/교환", new JScrollPane(productPanel));
+            // 3. 분리수거 퀴즈
+            tabbedPane.addTab("분리수거 퀴즈", new QuizPanel(currentUser, refreshCallback));
             
-            // 6. 포인트 랭킹 탭 추가
+            // 4. 상품 구매 및 상점
+            tabbedPane.addTab("상품 구매/교환", productPanel);
+            
+            // 5. 실시간 랭킹
             tabbedPane.addTab("포인트 랭킹", rankingPanel);
 
+            // ⭐ 관리자 전용 탭 (권한이 있는 경우만 노출)
+            if (currentUser.isAdmin()) {
+                // 관리자가 상품을 추가/수정하면 상점 탭에도 반영되도록 콜백 전달
+                tabbedPane.addTab("⚙️ 시스템 관리", new AdminWindow(refreshCallback));
+                
+                int adminTabIndex = tabbedPane.getTabCount() - 1;
+                tabbedPane.setForegroundAt(adminTabIndex, new Color(220, 20, 60)); // 크림슨 색상으로 강조
+            }
+
         } catch (Exception e) {
-             System.err.println("메인 프레임 패널 초기화 오류: " + e.getMessage());
-             e.printStackTrace(); // 상세 오류 추적을 위해 추가
-             JOptionPane.showMessageDialog(this, 
-                 "애플리케이션 초기화 중 오류가 발생했습니다: " + e.getMessage(), 
-                 "오류", JOptionPane.ERROR_MESSAGE);
-             System.exit(1); 
+             handleInitializationError(e);
         }
         
         return tabbedPane;
     }
 
+    private void handleInitializationError(Exception e) {
+        System.err.println("메인 프레임 초기화 중 치명적 오류: " + e.getMessage());
+        e.printStackTrace();
+        JOptionPane.showMessageDialog(this, 
+            "화면을 구성하는 중 오류가 발생했습니다.\n" + e.getMessage(), 
+            "초기화 오류", JOptionPane.ERROR_MESSAGE);
+        System.exit(1);
+    }
+
+    /**
+     * 메인 진입점
+     */
     public static void main(String[] args) {
-        // UI 디자인 설정 (시스템 테마 적용)
+        // 1. Look and Feel 설정
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); 
         } catch (Exception e) {
-            System.err.println("Look and Feel 설정 실패: " + e.getMessage());
+            System.err.println("OS 테마 적용 실패: " + e.getMessage());
         }
 
-        // DB 초기화 작업
+        // 2. DB 및 테이블 초기화
+        initializeBackend();
+        
+        // 3. 로그인 창 시작
+        SwingUtilities.invokeLater(() -> {
+            new LoginPanel(); 
+        });
+    }
+
+    private static void initializeBackend() {
         try {
             UserDAO.initializeDatabase();     
             RecycleLogDAO.initializeDatabase(); 
             GuideDAO.initializeDatabase();      
-            System.out.println("DB 테이블 및 초기 데이터 설정 완료.");
+            System.out.println(">>> 데이터베이스 인프라 준비 완료.");
         } catch (Exception e) { 
-            System.err.println("심각한 DB 초기화 오류 발생: " + e.getMessage());
             JOptionPane.showMessageDialog(null, 
-                "프로그램 시작 전 DB 초기화에 실패했습니다. 프로그램을 종료합니다.\n" + e.getMessage(), 
-                "심각한 오류", JOptionPane.ERROR_MESSAGE);
+                "데이터베이스 연결에 실패했습니다.\n" + e.getMessage(), 
+                "DB 접속 오류", JOptionPane.ERROR_MESSAGE);
             System.exit(1);
         }
-        
-        // 로그인 화면 실행
-        SwingUtilities.invokeLater(() -> {
-            new LoginPanel(); 
-        });
     }
 }
