@@ -100,8 +100,25 @@ public class UserDAO {
         }
     }
 
-    // [5] ID로 회원 정보 조회 
-    public UserDTO getUserById(String userID) throws SQLException {
+    // [4-1] 회원 등록 (관리자용)
+    public boolean registerUser(UserDTO user) throws SQLException {
+        String sql = "INSERT INTO " + USERS_TABLE + 
+                     " (USER_ID, PASSWORD, NICKNAME, BALANCE_POINTS, TOTAL_POINTS, ATTENDANCE_STREAK, IS_ADMIN) " +
+                     " VALUES (?, ?, ?, ?, ?, 0, ?)";
+        try (Connection conn = RecycleDB.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, user.getUserId());
+            pstmt.setString(2, user.getPassword() != null ? user.getPassword() : "1234");
+            pstmt.setString(3, user.getNickname());
+            pstmt.setInt(4, user.getBalancePoints());
+            pstmt.setInt(5, user.getTotalPoints());
+            pstmt.setBoolean(6, user.isAdmin());
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
+    // [5] ID로 회원 정보 조회 (중요: 실시간 동기화에 사용됨)
+    public UserDTO getUserById(String userID) {
         String sql = "SELECT * FROM " + USERS_TABLE + " WHERE USER_ID = ?";
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -109,11 +126,13 @@ public class UserDAO {
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) return mapUserDTO(rs);
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
         return null; 
     }
 
-    // [6] 관리자용: 전체 사용자 목록 조회
+    // [6] 전체 사용자 목록 조회
     public List<UserDTO> getAllUsers() throws SQLException {
         String sql = "SELECT * FROM " + USERS_TABLE + " ORDER BY USER_ID ASC";
         List<UserDTO> userList = new ArrayList<>();
@@ -127,7 +146,7 @@ public class UserDAO {
         return userList;
     }
 
-    // [7] 포인트 업데이트 (일반 호출용)
+    // [7] 포인트 업데이트 (구매 시 등)
     public void updateUserPoint(UserDTO user) throws SQLException {
         try (Connection conn = RecycleDB.connect()) {
             updateUserPoint(conn, user);
@@ -146,25 +165,27 @@ public class UserDAO {
     }
 
     /**
-     * [8] 관리자용: 사용자 정보 통합 수정
+     * ⭐ [8] 관리자용: 사용자 정보 통합 수정 (수정됨)
+     * BALANCE_POINTS뿐만 아니라 TOTAL_POINTS도 함께 수정하도록 보완하여 
+     * 데이터 불일치 문제를 해결합니다.
      */
     public boolean updateUserByAdmin(UserDTO user) throws SQLException {
+        // 기존 쿼리에 TOTAL_POINTS = ? 추가
         String sql = "UPDATE " + USERS_TABLE + 
-                     " SET NICKNAME = ?, BALANCE_POINTS = ?, IS_ADMIN = ? " + 
+                     " SET NICKNAME = ?, BALANCE_POINTS = ?, TOTAL_POINTS = ?, IS_ADMIN = ? " + 
                      " WHERE USER_ID = ?";
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, user.getNickname());
             pstmt.setInt(2, user.getBalancePoints());
-            pstmt.setBoolean(3, user.isAdmin());
-            pstmt.setString(4, user.getUserId());
+            pstmt.setInt(3, user.getTotalPoints()); // 누적 포인트 반영
+            pstmt.setBoolean(4, user.isAdmin());
+            pstmt.setString(5, user.getUserId());
             return pstmt.executeUpdate() > 0;
         }
     }
 
-    /**
-     * [9] 관리자 대시보드용: 총 회원 수 조회
-     */
+    // [9] 총 회원 수
     public int getTotalUserCount() throws SQLException {
         String sql = "SELECT COUNT(*) FROM " + USERS_TABLE;
         try (Connection conn = RecycleDB.connect();
@@ -174,9 +195,7 @@ public class UserDAO {
         }
     }
 
-    /**
-     * [10] 관리자 대시보드용: 시스템 내 유통 중인 총 포인트 합계 조회
-     */
+    // [10] 총 포인트 합계
     public int getTotalSystemPoints() throws SQLException {
         String sql = "SELECT SUM(BALANCE_POINTS) FROM " + USERS_TABLE;
         try (Connection conn = RecycleDB.connect();
@@ -186,7 +205,7 @@ public class UserDAO {
         }
     }
 
-    // [11] 포인트 추가 (트랜잭션용)
+    // [11] 포인트 추가 
     public void addPointsToUser(Connection conn, String userID, int points) throws SQLException {
         String sql = "UPDATE " + USERS_TABLE + 
                      " SET BALANCE_POINTS = BALANCE_POINTS + ?, TOTAL_POINTS = TOTAL_POINTS + ? WHERE USER_ID = ?";
@@ -198,7 +217,7 @@ public class UserDAO {
         }
     }
 
-    // [12] 전체 랭킹 조회 
+    // [12] 랭킹 조회
     public List<RankingDTO> getAllUserRankings() throws SQLException {
         String sql = "SELECT USER_ID, NICKNAME, TOTAL_POINTS FROM " + USERS_TABLE + 
                      " ORDER BY TOTAL_POINTS DESC, USER_ID ASC";
@@ -227,9 +246,6 @@ public class UserDAO {
         }
     }
 
-    /**
-     * ResultSet 데이터를 UserDTO로 변환하는 헬퍼 메서드
-     */
     private UserDTO mapUserDTO(ResultSet rs) throws SQLException {
         return new UserDTO(
             rs.getString("USER_ID"),

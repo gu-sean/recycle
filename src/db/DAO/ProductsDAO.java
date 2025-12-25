@@ -1,5 +1,6 @@
 package db.DAO;
 
+import java.io.File;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -25,16 +26,16 @@ public class ProductsDAO {
                      "  PRODUCT_ID VARCHAR(50) NOT NULL," +
                      "  PRODUCT_NAME VARCHAR(100) NOT NULL," +
                      "  REQUIRED_POINTS INT NOT NULL," +
-                     "  STOCK INT DEFAULT 0," +                // 재고 필드
-                     "  IMAGE_PATH VARCHAR(255)," +            // 이미지 경로 필드
-                     "  DESCRIPTION TEXT," +                    // 상세 설명 필드
+                     "  STOCK INT DEFAULT 0," +                
+                     "  IMAGE_PATH VARCHAR(255)," +            
+                     "  DESCRIPTION TEXT," +                    
                      "  PRIMARY KEY (PRODUCT_ID)" +
                      ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
 
         try (Connection conn = RecycleDB.connect();
              Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
-            System.out.println("✅ PRODUCTS 테이블 초기화 및 필드 검증 완료.");
+            System.out.println("✅ PRODUCTS 테이블 초기화 완료.");
         } catch (SQLException e) {
             System.err.println("❌ PRODUCTS 테이블 생성 오류: " + e.getMessage());
         }
@@ -89,7 +90,6 @@ public class ProductsDAO {
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
-            // 고유 식별자 생성 (이미 존재하지 않는 경우에만 새로 생성)
             String uniqueID = (product.getProductId() == null || product.getProductId().isEmpty()) 
                               ? UUID.randomUUID().toString().substring(0, 8) 
                               : product.getProductId();
@@ -102,22 +102,18 @@ public class ProductsDAO {
             pstmt.setString(6, product.getDescription());
             
             return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            System.err.println("❌ 상품 등록 오류: " + e.getMessage());
-            throw e;
         }
     }
 
     /**
-     * [4] 관리자 기능: 상품 수정
+     * [4-1] ⭐ 상품 수정 (트랜잭션 지원용)
+     * ProductWindow의 구매 로직 등에서 외부 Connection을 사용할 때 호출합니다.
      */
-    public boolean updateProduct(ProductsDTO product) throws SQLException {
+    public void updateProduct(Connection conn, ProductsDTO product) throws SQLException {
         String sql = "UPDATE PRODUCTS SET PRODUCT_NAME = ?, REQUIRED_POINTS = ?, STOCK = ?, " +
                      "IMAGE_PATH = ?, DESCRIPTION = ? WHERE PRODUCT_ID = ?";
         
-        try (Connection conn = RecycleDB.connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, product.getProductName());
             pstmt.setInt(2, product.getRequiredPoints());
             pstmt.setInt(3, product.getStock());
@@ -125,7 +121,21 @@ public class ProductsDAO {
             pstmt.setString(5, product.getDescription());
             pstmt.setString(6, product.getProductId());
             
-            return pstmt.executeUpdate() > 0;
+            pstmt.executeUpdate();
+        }
+    }
+
+    /**
+     * [4-2] 상품 수정 (기존 단일 작업용)
+     * 관리자 창 등에서 직접 수정할 때 사용합니다.
+     */
+    public boolean updateProduct(ProductsDTO product) throws SQLException {
+        try (Connection conn = RecycleDB.connect()) {
+            updateProduct(conn, product);
+            return true;
+        } catch (SQLException e) {
+            System.err.println("❌ 상품 수정 오류: " + e.getMessage());
+            throw e;
         }
     }
 
@@ -144,33 +154,7 @@ public class ProductsDAO {
     }
 
     /**
-     * [6] 관리자 대시보드용: 품절 임박 상품 수 조회 (재고 5개 미만)
-     */
-    public int getLowStockCount(int threshold) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM PRODUCTS WHERE STOCK < ?";
-        try (Connection conn = RecycleDB.connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, threshold);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                return rs.next() ? rs.getInt(1) : 0;
-            }
-        }
-    }
-
-    /**
-     * [7] 관리자 대시보드용: 전체 등록된 상품 종수 조회
-     */
-    public int getTotalProductCount() throws SQLException {
-        String sql = "SELECT COUNT(*) FROM PRODUCTS";
-        try (Connection conn = RecycleDB.connect();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-            return rs.next() ? rs.getInt(1) : 0;
-        }
-    }
-
-    /**
-     * [Helper] ResultSet 데이터를 DTO로 변환하는 공통 로직
+     * [Helper] ResultSet 데이터를 DTO로 변환하는 핵심 로직
      */
     private ProductsDTO mapResultSetToDTO(ResultSet rs) throws SQLException {
         ProductsDTO product = new ProductsDTO();
@@ -178,8 +162,23 @@ public class ProductsDAO {
         product.setProductName(rs.getString("PRODUCT_NAME"));
         product.setRequiredPoints(rs.getInt("REQUIRED_POINTS"));
         product.setStock(rs.getInt("STOCK"));
-        product.setImagePath(rs.getString("IMAGE_PATH"));
         product.setDescription(rs.getString("DESCRIPTION"));
+
+        // 🖼️ 이미지 경로 처리 로직
+        String rawPath = rs.getString("IMAGE_PATH"); 
+        
+        if (rawPath != null && !rawPath.isEmpty()) {
+            // 이미 절대 경로(D:\... 또는 C:\...)인 경우에는 그대로 사용
+            if (new File(rawPath).isAbsolute()) {
+                product.setImagePath(rawPath);
+            } else {
+                // 상대 경로인 경우 프로젝트 루트 결합
+                String absolutePath = System.getProperty("user.dir") + File.separator + "src" + 
+                                      File.separator + "main" + File.separator + "webapp" + rawPath;
+                product.setImagePath(absolutePath);
+            }
+        }
+
         return product;
     }
 }

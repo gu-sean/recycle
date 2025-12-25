@@ -6,16 +6,12 @@ import db.DTO.UserDTO;
 import db.DTO.ProductsDTO;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.border.LineBorder;
-import javax.swing.border.TitledBorder;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.DefaultTableModel;
-import javax.swing.table.JTableHeader;
-import javax.swing.table.TableRowSorter;
+import javax.swing.border.*;
+import javax.swing.table.*;
 import java.awt.*;
 import java.sql.SQLException;
 import java.util.List;
+import java.net.URL;
 
 public class AdminWindow extends JPanel {
     private final Runnable refreshCallback;
@@ -23,38 +19,45 @@ public class AdminWindow extends JPanel {
     private final ProductsDAO productsDAO = new ProductsDAO();
 
     // --- 네온 다크 퍼플 테마 색상 ---
-    private static final Color BG_DARK = new Color(20, 15, 40);
-    private static final Color BG_CARD = new Color(35, 30, 70);
-    private static final Color POINT_PURPLE = new Color(150, 100, 255);
-    private static final Color POINT_CYAN = new Color(0, 255, 240);
+    private static final Color BG_DARK = new Color(20, 15, 40);      
+    private static final Color BG_CARD = new Color(30, 25, 60);      
+    private static final Color POINT_PURPLE = new Color(150, 100, 255); 
+    private static final Color POINT_CYAN = new Color(0, 255, 240);    
+    private static final Color POINT_RED = new Color(255, 80, 120); 
     private static final Color TEXT_WHITE = new Color(240, 240, 240);
 
-    // --- 통계 대시보드 ---
     private JLabel statsLabel;
 
-    // --- 상품 관리 컴포넌트 ---
+    // 상품 관리 컴포넌트
     private JTable productTable;
     private DefaultTableModel productTableModel;
     private TableRowSorter<DefaultTableModel> productSorter;
     private JTextField nameField, pointField, stockField, imagePathField, productSearchField;
     private JTextArea descArea;
+    private JLabel imagePreviewLabel;
     private String currentSelectedProductId = null;
 
-    // --- 사용자 관리 컴포넌트 ---
+    // 사용자 관리 컴포넌트
     private JTable userTable;
     private DefaultTableModel userTableModel;
     private TableRowSorter<DefaultTableModel> userSorter;
-    private JTextField userIdField, nicknameField, userPointField, userSearchField;
+    private JTextField userIdField, userPwField, nicknameField, userPointField, userSearchField;
     private JCheckBox adminCheck;
     private String currentSelectedUserId = null;
 
     public AdminWindow(Runnable refreshCallback) {
         this.refreshCallback = refreshCallback;
         setLayout(new BorderLayout(0, 10));
-        setBackground(BG_DARK);
+        setBackground(BG_DARK); 
         setBorder(new EmptyBorder(20, 20, 20, 20));
 
-        // 1. 상단 대시보드 영역 (네온 스타일)
+        setupDashboard();
+        setupTabs();
+        
+        refreshAllData();
+    }
+
+    private void setupDashboard() {
         JPanel dashboardPanel = new JPanel(new BorderLayout());
         dashboardPanel.setBackground(BG_CARD);
         dashboardPanel.setBorder(new LineBorder(POINT_PURPLE, 1));
@@ -65,18 +68,14 @@ public class AdminWindow extends JPanel {
         statsLabel.setBorder(BorderFactory.createEmptyBorder(15, 10, 15, 10));
         dashboardPanel.add(statsLabel, BorderLayout.CENTER);
         add(dashboardPanel, BorderLayout.NORTH);
+    }
 
-        // 2. 탭 설정 (다크 테마 커스텀)
+    private void setupTabs() {
         JTabbedPane adminTabs = new JTabbedPane();
         adminTabs.setFont(new Font("맑은 고딕", Font.BOLD, 14));
-        
         adminTabs.addTab("📦 상품 관리", createProductManagementPanel());
         adminTabs.addTab("👥 사용자 관리", createUserManagementPanel());
-        adminTabs.addTab("📜 활동 로그", createLogPanel());
-
         add(adminTabs, BorderLayout.CENTER);
-        
-        refreshAllData();
     }
 
     private void refreshAllData() {
@@ -88,116 +87,120 @@ public class AdminWindow extends JPanel {
     private void updateStats() {
         try {
             List<UserDTO> users = userDAO.getAllUsers();
-            int userCount = users.size();
-            int totalPoints = users.stream().mapToInt(UserDTO::getBalancePoints).sum();
             long lowStock = productsDAO.getAllProducts().stream().filter(p -> p.getStock() < 5).count();
+            int totalPoints = users.stream().mapToInt(UserDTO::getBalancePoints).sum();
             
             statsLabel.setText(String.format("📊 실시간 대시보드  |  총 회원: %d명  |  유통 포인트: %,d P  |  재고 부족: %d건", 
-                               userCount, totalPoints, lowStock));
-        } catch (Exception e) {
-            statsLabel.setText("통계 정보를 불러오지 못했습니다.");
+                               users.size(), totalPoints, lowStock));
+        } catch (Exception e) { 
+            statsLabel.setText("데이터 연결 오류"); 
         }
     }
 
     // ============================================================
-    // 1. 상품 관리 패널 (다크 디자인 적용)
+    // 1. 상품 관리 패널
     // ============================================================
     private JPanel createProductManagementPanel() {
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
         mainPanel.setBackground(BG_DARK);
 
-        // --- 상단: 검색 및 폼 ---
-        JPanel topPanel = new JPanel(new BorderLayout(5, 5));
-        topPanel.setOpaque(false);
+        // 상단 입력 폼
+        JPanel topWrapper = new JPanel(new BorderLayout(10, 0));
+        topWrapper.setOpaque(false);
 
-        // 검색 바
-        JPanel searchBar = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        searchBar.setOpaque(false);
-        JLabel searchIcon = new JLabel("🔍 상품 검색: ");
-        searchIcon.setForeground(TEXT_WHITE);
-        productSearchField = createStyledTextField(20);
-        productSearchField.addCaretListener(e -> {
-            String text = productSearchField.getText();
-            if (text.trim().length() == 0) productSorter.setRowFilter(null);
-            else productSorter.setRowFilter(RowFilter.regexFilter("(?i)" + text));
-        });
-        searchBar.add(searchIcon); searchBar.add(productSearchField);
-
-        // 입력 폼
         JPanel formPanel = new JPanel(new GridBagLayout());
         formPanel.setBackground(BG_CARD);
         formPanel.setBorder(createCustomTitledBorder("상품 상세 설정"));
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 15, 5, 15); gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(4, 15, 4, 15); gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        nameField = createStyledTextField(20); pointField = createStyledTextField(20);
-        stockField = createStyledTextField(20); imagePathField = createStyledTextField(15);
-        JButton imageSearchBtn = createStyledButton("찾기", BG_DARK);
+        nameField = createStyledTextField(20); 
+        pointField = createStyledTextField(20);
+        stockField = createStyledTextField(20); 
+        imagePathField = createStyledTextField(15);
         descArea = new JTextArea(3, 20); 
         descArea.setBackground(BG_DARK); descArea.setForeground(Color.WHITE);
         descArea.setCaretColor(Color.WHITE); descArea.setLineWrap(true);
 
         String[] labels = {"상품명", "필요 포인트", "재고 수량", "이미지 경로", "상품 설명"};
-        JComponent[] fields = {nameField, pointField, stockField, null, new JScrollPane(descArea)};
+        JComponent[] fields = {nameField, pointField, stockField, imagePathField, new JScrollPane(descArea)};
 
         for (int i = 0; i < labels.length; i++) {
             gbc.gridx = 0; gbc.gridy = i;
             JLabel lbl = new JLabel(labels[i]); lbl.setForeground(TEXT_WHITE);
             formPanel.add(lbl, gbc);
-            gbc.gridx = 1;
-            if (i == 3) {
-                JPanel imgP = new JPanel(new BorderLayout(5,0)); imgP.setOpaque(false);
-                imgP.add(imagePathField, BorderLayout.CENTER); imgP.add(imageSearchBtn, BorderLayout.EAST);
-                formPanel.add(imgP, gbc);
-            } else formPanel.add(fields[i], gbc);
+            gbc.gridx = 1; formPanel.add(fields[i], gbc);
         }
 
-        // 버튼 영역
-        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
+        JPanel previewPanel = new JPanel(new BorderLayout());
+        previewPanel.setBackground(BG_CARD);
+        previewPanel.setPreferredSize(new Dimension(180, 0));
+        previewPanel.setBorder(createCustomTitledBorder("미리보기"));
+        imagePreviewLabel = new JLabel("이미지 없음", JLabel.CENTER);
+        imagePreviewLabel.setForeground(Color.GRAY);
+        previewPanel.add(imagePreviewLabel, BorderLayout.CENTER);
+        imagePathField.addCaretListener(e -> updateImagePreview(imagePathField.getText()));
+
+        topWrapper.add(formPanel, BorderLayout.CENTER);
+        topWrapper.add(previewPanel, BorderLayout.EAST);
+
+        // 중간 버튼 바
+        JPanel btnPanel = new JPanel();
+        btnPanel.setLayout(new BoxLayout(btnPanel, BoxLayout.X_AXIS));
         btnPanel.setOpaque(false);
+        btnPanel.setBorder(new EmptyBorder(10, 15, 10, 15));
+
         JButton addBtn = createStyledButton("신규 등록", new Color(40, 167, 69));
         JButton updateBtn = createStyledButton("정보 수정", new Color(0, 123, 255));
         JButton deleteBtn = createStyledButton("상품 삭제", new Color(220, 53, 69));
         JButton clearBtn = createStyledButton("초기화", Color.GRAY);
+        
+        productSearchField = createStyledTextField(15);
+        productSearchField.setMaximumSize(new Dimension(180, 30));
+        JLabel searchIcon = new JLabel(" 🔍 검색: ");
+        searchIcon.setForeground(POINT_CYAN);
+        productSearchField.addCaretListener(e -> {
+            String text = productSearchField.getText();
+            productSorter.setRowFilter(text.trim().isEmpty() ? null : RowFilter.regexFilter("(?i)" + text));
+        });
 
-        btnPanel.add(addBtn); btnPanel.add(updateBtn); btnPanel.add(deleteBtn); btnPanel.add(clearBtn);
+        btnPanel.add(Box.createHorizontalGlue()); 
+        btnPanel.add(addBtn); btnPanel.add(Box.createHorizontalStrut(10));
+        btnPanel.add(updateBtn); btnPanel.add(Box.createHorizontalStrut(10));
+        btnPanel.add(deleteBtn); btnPanel.add(Box.createHorizontalStrut(10));
+        btnPanel.add(clearBtn); 
+        btnPanel.add(Box.createHorizontalStrut(30));
+        btnPanel.add(searchIcon); btnPanel.add(productSearchField);
 
-        topPanel.add(searchBar, BorderLayout.NORTH);
-        topPanel.add(formPanel, BorderLayout.CENTER);
-        topPanel.add(btnPanel, BorderLayout.SOUTH);
-
-        // --- 하단: 테이블 ---
-        String[] colNames = {"ID", "상품명", "포인트", "재고", "이미지경로", "설명"};
-        productTableModel = new DefaultTableModel(colNames, 0) { @Override public boolean isCellEditable(int r, int c) { return false; } };
+        // 하단 테이블
+        productTableModel = new DefaultTableModel(new String[]{"ID", "상품명", "포인트", "재고", "이미지경로", "설명"}, 0);
         productTable = createStyledTable(productTableModel);
+        applyStockRenderer(productTable); 
         productSorter = new TableRowSorter<>(productTableModel);
         productTable.setRowSorter(productSorter);
 
         productTable.getSelectionModel().addListSelectionListener(e -> {
             int row = productTable.getSelectedRow();
             if (row != -1) {
-                int modelRow = productTable.convertRowIndexToModel(row);
-                currentSelectedProductId = String.valueOf(productTableModel.getValueAt(modelRow, 0));
-                nameField.setText((String) productTableModel.getValueAt(modelRow, 1));
-                pointField.setText(String.valueOf(productTableModel.getValueAt(modelRow, 2)));
-                stockField.setText(String.valueOf(productTableModel.getValueAt(modelRow, 3)));
-                imagePathField.setText((String) productTableModel.getValueAt(modelRow, 4));
-                descArea.setText((String) productTableModel.getValueAt(modelRow, 5));
+                int mRow = productTable.convertRowIndexToModel(row);
+                currentSelectedProductId = String.valueOf(productTableModel.getValueAt(mRow, 0));
+                nameField.setText((String) productTableModel.getValueAt(mRow, 1));
+                pointField.setText(String.valueOf(productTableModel.getValueAt(mRow, 2)));
+                stockField.setText(String.valueOf(productTableModel.getValueAt(mRow, 3)));
+                imagePathField.setText((String) productTableModel.getValueAt(mRow, 4));
+                descArea.setText((String) productTableModel.getValueAt(mRow, 5));
             }
         });
 
-        imageSearchBtn.addActionListener(e -> {
-            JFileChooser chooser = new JFileChooser();
-            if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) imagePathField.setText(chooser.getSelectedFile().getAbsolutePath());
-        });
-
-        clearBtn.addActionListener(e -> clearProductFields());
         addBtn.addActionListener(e -> handleProductAction("INSERT"));
         updateBtn.addActionListener(e -> handleProductAction("UPDATE"));
         deleteBtn.addActionListener(e -> handleProductAction("DELETE"));
+        clearBtn.addActionListener(e -> clearProductFields());
 
-        mainPanel.add(topPanel, BorderLayout.NORTH);
-        mainPanel.add(new JScrollPane(productTable), BorderLayout.CENTER);
+        mainPanel.add(topWrapper, BorderLayout.NORTH);
+        mainPanel.add(btnPanel, BorderLayout.CENTER);
+        mainPanel.add(createStyledScrollPane(productTable), BorderLayout.SOUTH);
+        mainPanel.getComponent(2).setPreferredSize(new Dimension(0, 300));
 
         return mainPanel;
     }
@@ -212,191 +215,253 @@ public class AdminWindow extends JPanel {
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.setOpaque(false);
 
-        JPanel searchBar = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        searchBar.setOpaque(false);
-        JLabel searchIcon = new JLabel("🔍 사용자 검색: ");
-        searchIcon.setForeground(TEXT_WHITE);
-        userSearchField = createStyledTextField(20);
-        userSearchField.addCaretListener(e -> {
-            String text = userSearchField.getText();
-            if (text.trim().length() == 0) userSorter.setRowFilter(null);
-            else userSorter.setRowFilter(RowFilter.regexFilter("(?i)" + text));
-        });
-        searchBar.add(searchIcon); searchBar.add(userSearchField);
-
         JPanel editPanel = new JPanel(new GridBagLayout());
         editPanel.setBackground(BG_CARD);
-        editPanel.setBorder(createCustomTitledBorder("회원 정보 수정"));
+        editPanel.setBorder(createCustomTitledBorder("회원 관리 (등록/수정)"));
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 20, 10, 20); gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(5, 15, 5, 15); gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        userIdField = createStyledTextField(15); userIdField.setEditable(false);
-        nicknameField = createStyledTextField(15); userPointField = createStyledTextField(15);
-        adminCheck = new JCheckBox("관리자 권한 부여"); 
+        userIdField = createStyledTextField(15);
+        userPwField = createStyledTextField(15);
+        nicknameField = createStyledTextField(15);
+        userPointField = createStyledTextField(15);
+        adminCheck = new JCheckBox("관리자 권한"); 
         adminCheck.setBackground(BG_CARD); adminCheck.setForeground(POINT_CYAN);
 
-        gbc.gridx = 0; gbc.gridy = 0; 
-        JLabel lbl1 = new JLabel("아이디:"); lbl1.setForeground(TEXT_WHITE); editPanel.add(lbl1, gbc);
-        gbc.gridx = 1; editPanel.add(userIdField, gbc);
-        gbc.gridx = 0; gbc.gridy = 1; 
-        JLabel lbl2 = new JLabel("닉네임:"); lbl2.setForeground(TEXT_WHITE); editPanel.add(lbl2, gbc);
-        gbc.gridx = 1; editPanel.add(nicknameField, gbc);
-        gbc.gridx = 0; gbc.gridy = 2; 
-        JLabel lbl3 = new JLabel("보유 포인트:"); lbl3.setForeground(TEXT_WHITE); editPanel.add(lbl3, gbc);
-        gbc.gridx = 1; editPanel.add(userPointField, gbc);
-        gbc.gridx = 1; gbc.gridy = 3; editPanel.add(adminCheck, gbc);
+        String[] labels = {"아이디", "비밀번호", "닉네임", "보유 포인트"};
+        JTextField[] fields = {userIdField, userPwField, nicknameField, userPointField};
 
-        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
+        for (int i = 0; i < labels.length; i++) {
+            gbc.gridx = 0; gbc.gridy = i;
+            JLabel lbl = new JLabel(labels[i]); lbl.setForeground(TEXT_WHITE);
+            editPanel.add(lbl, gbc);
+            gbc.gridx = 1; editPanel.add(fields[i], gbc);
+        }
+        gbc.gridy = 4; editPanel.add(adminCheck, gbc);
+
+        JPanel btnPanel = new JPanel();
+        btnPanel.setLayout(new BoxLayout(btnPanel, BoxLayout.X_AXIS));
         btnPanel.setOpaque(false);
+        btnPanel.setBorder(new EmptyBorder(10, 15, 10, 15));
+
+        JButton userAddBtn = createStyledButton("회원 등록", new Color(40, 167, 69));
         JButton userUpdateBtn = createStyledButton("정보 수정", new Color(0, 123, 255));
-        JButton userDeleteBtn = createStyledButton("강제 탈퇴", new Color(220, 53, 69));
-        JButton refreshBtn = createStyledButton("새로고침", Color.GRAY);
+        JButton userDeleteBtn = createStyledButton("회원 삭제", new Color(220, 53, 69));
+        JButton clearBtn = createStyledButton("초기화", Color.GRAY);
+        
+        userSearchField = createStyledTextField(15);
+        userSearchField.setMaximumSize(new Dimension(180, 30));
+        JLabel searchIcon = new JLabel(" 🔍 검색: ");
+        searchIcon.setForeground(POINT_CYAN);
+        userSearchField.addCaretListener(e -> {
+            String text = userSearchField.getText();
+            userSorter.setRowFilter(text.trim().isEmpty() ? null : RowFilter.regexFilter("(?i)" + text));
+        });
 
-        btnPanel.add(userUpdateBtn); btnPanel.add(userDeleteBtn); btnPanel.add(refreshBtn);
+        btnPanel.add(Box.createHorizontalGlue()); 
+        btnPanel.add(userAddBtn); btnPanel.add(Box.createHorizontalStrut(10));
+        btnPanel.add(userUpdateBtn); btnPanel.add(Box.createHorizontalStrut(10));
+        btnPanel.add(userDeleteBtn); btnPanel.add(Box.createHorizontalStrut(10));
+        btnPanel.add(clearBtn); 
+        btnPanel.add(Box.createHorizontalStrut(30));
+        btnPanel.add(searchIcon); btnPanel.add(userSearchField);
 
-        topPanel.add(searchBar, BorderLayout.NORTH);
-        topPanel.add(editPanel, BorderLayout.CENTER);
-        topPanel.add(btnPanel, BorderLayout.SOUTH);
-
-        String[] columnNames = {"아이디", "닉네임", "보유 포인트", "누적 포인트", "권한"};
-        userTableModel = new DefaultTableModel(columnNames, 0) { @Override public boolean isCellEditable(int r, int c) { return false; } };
+        userTableModel = new DefaultTableModel(new String[]{"아이디", "닉네임", "보유 포인트", "누적 포인트", "권한"}, 0);
         userTable = createStyledTable(userTableModel);
+        
         userSorter = new TableRowSorter<>(userTableModel);
         userTable.setRowSorter(userSorter);
 
         userTable.getSelectionModel().addListSelectionListener(e -> {
             int row = userTable.getSelectedRow();
             if (row != -1) {
-                int modelRow = userTable.convertRowIndexToModel(row);
-                currentSelectedUserId = (String) userTableModel.getValueAt(modelRow, 0);
+                int mRow = userTable.convertRowIndexToModel(row);
+                currentSelectedUserId = (String) userTableModel.getValueAt(mRow, 0);
                 userIdField.setText(currentSelectedUserId);
-                nicknameField.setText((String) userTableModel.getValueAt(modelRow, 1));
-                userPointField.setText(String.valueOf(userTableModel.getValueAt(modelRow, 2)));
-                adminCheck.setSelected(userTableModel.getValueAt(modelRow, 4).toString().contains("관리자"));
+                userIdField.setEditable(false);
+                userPwField.setText("********");
+                nicknameField.setText((String) userTableModel.getValueAt(mRow, 1));
+                userPointField.setText(userTableModel.getValueAt(mRow, 2).toString());
+                adminCheck.setSelected(userTableModel.getValueAt(mRow, 4).toString().contains("관리자"));
             }
         });
 
+        userAddBtn.addActionListener(e -> handleUserAction("INSERT"));
         userUpdateBtn.addActionListener(e -> handleUserAction("UPDATE"));
         userDeleteBtn.addActionListener(e -> handleUserAction("DELETE"));
-        refreshBtn.addActionListener(e -> refreshAllData());
+        clearBtn.addActionListener(e -> clearUserFields());
 
+        topPanel.add(editPanel, BorderLayout.CENTER);
+        topPanel.add(btnPanel, BorderLayout.SOUTH);
         mainPanel.add(topPanel, BorderLayout.NORTH);
-        mainPanel.add(new JScrollPane(userTable), BorderLayout.CENTER);
+        mainPanel.add(createStyledScrollPane(userTable), BorderLayout.CENTER);
 
         return mainPanel;
     }
 
-    private JPanel createLogPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(BG_DARK);
-        panel.setBorder(new EmptyBorder(20,20,20,20));
-        
-        JLabel logTitle = new JLabel("📜 시스템 활동 로그 (최신순)", JLabel.CENTER);
-        logTitle.setForeground(POINT_CYAN);
-        logTitle.setFont(new Font("맑은 고딕", Font.BOLD, 18));
-        
-        String[] columns = {"시간", "ID", "활동", "포인트 변동", "상세내역"};
-        DefaultTableModel logModel = new DefaultTableModel(columns, 0);
-        JTable logTable = createStyledTable(logModel);
-        
-        panel.add(logTitle, BorderLayout.NORTH);
-        panel.add(new JScrollPane(logTable), BorderLayout.CENTER);
-        
-        JButton refreshLog = createStyledButton("로그 새로고침", POINT_PURPLE);
-        panel.add(refreshLog, BorderLayout.SOUTH);
-        
-        return panel;
+    // ============================================================
+    // 핵심 로직: 검증 및 실행
+    // ============================================================
+    
+    private void handleProductAction(String type) {
+        try {
+            if (type.equals("DELETE")) {
+                if (currentSelectedProductId == null) throw new Exception("삭제할 상품을 테이블에서 선택해주세요.");
+                if (JOptionPane.showConfirmDialog(this, "상품을 삭제하시겠습니까?", "확인", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+                    productsDAO.deleteProduct(currentSelectedProductId);
+                } else return;
+            } else {
+                // 1. 입력값 검증 (Validation)
+                String name = nameField.getText().trim();
+                if (name.isEmpty()) throw new Exception("상품명을 입력해주세요.");
+                
+                int points, stock;
+                try {
+                    points = Integer.parseInt(pointField.getText().trim());
+                    stock = Integer.parseInt(stockField.getText().trim());
+                    if (points < 0 || stock < 0) throw new Exception("포인트와 재고는 0 이상이어야 합니다.");
+                } catch (NumberFormatException e) {
+                    throw new Exception("포인트와 재고는 숫자만 입력 가능합니다.");
+                }
+
+                ProductsDTO p = new ProductsDTO(currentSelectedProductId, name, points, stock, 
+                                                imagePathField.getText().trim(), descArea.getText().trim());
+                
+                if (type.equals("INSERT")) productsDAO.insertProduct(p);
+                else productsDAO.updateProduct(p);
+            }
+
+            // 2. 후처리 및 UI 동기화
+            refreshAllData(); 
+            clearProductFields(); 
+            if (refreshCallback != null) refreshCallback.run(); // 메인 상점 UI 동기화
+            JOptionPane.showMessageDialog(this, "성공적으로 처리되었습니다.");
+            
+        } catch (Exception ex) { 
+            JOptionPane.showMessageDialog(this, "오류: " + ex.getMessage(), "실패", JOptionPane.ERROR_MESSAGE); 
+        }
     }
 
-    // --- 유틸리티 UI 생성 메서드 ---
+    private void handleUserAction(String type) {
+        try {
+            if (type.equals("DELETE")) {
+                if (currentSelectedUserId == null) throw new Exception("삭제할 회원을 선택해주세요.");
+                if (JOptionPane.showConfirmDialog(this, "회원을 삭제하시겠습니까?", "확인", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+                    userDAO.deleteUser(currentSelectedUserId);
+                } else return;
+            } else {
+                // 1. 입력값 검증
+                String id = userIdField.getText().trim();
+                String nick = nicknameField.getText().trim();
+                if (id.isEmpty() || nick.isEmpty()) throw new Exception("아이디와 닉네임은 필수입니다.");
+                
+                int points;
+                try {
+                    points = Integer.parseInt(userPointField.getText().trim());
+                } catch (NumberFormatException e) {
+                    throw new Exception("포인트는 숫자만 입력 가능합니다.");
+                }
+
+                if (type.equals("INSERT")) {
+                    String pw = userPwField.getText().trim();
+                    if (pw.isEmpty() || pw.equals("********")) throw new Exception("신규 등록 시 비밀번호는 필수입니다.");
+                    userDAO.registerUser(new UserDTO(id, pw, nick, points, points, adminCheck.isSelected()));
+                } else {
+                    UserDTO u = new UserDTO(); 
+                    u.setUserId(currentSelectedUserId); 
+                    u.setNickname(nick);
+                    u.setBalancePoints(points); 
+                    u.setAdmin(adminCheck.isSelected());
+                    userDAO.updateUserByAdmin(u);
+                }
+            }
+
+            refreshAllData(); 
+            clearUserFields();
+            if (refreshCallback != null) refreshCallback.run();
+            JOptionPane.showMessageDialog(this, "회원 정보가 반영되었습니다.");
+            
+        } catch (Exception ex) { 
+            JOptionPane.showMessageDialog(this, "오류: " + ex.getMessage(), "실패", JOptionPane.ERROR_MESSAGE); 
+        }
+    }
+
+    // --- 유틸리티 메서드 (스타일 및 헬퍼) ---
+
+    private void updateImagePreview(String path) {
+        if (path == null || path.trim().isEmpty()) {
+            imagePreviewLabel.setIcon(null); imagePreviewLabel.setText("이미지 없음");
+            return;
+        }
+        try {
+            ImageIcon icon = path.startsWith("http") ? new ImageIcon(new URL(path)) : new ImageIcon(path);
+            Image img = icon.getImage().getScaledInstance(150, 150, Image.SCALE_SMOOTH);
+            imagePreviewLabel.setIcon(new ImageIcon(img)); imagePreviewLabel.setText("");
+        } catch (Exception e) {
+            imagePreviewLabel.setIcon(null); imagePreviewLabel.setText("로드 실패");
+        }
+    }
+
+    private void applyStockRenderer(JTable table) {
+        table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                try {
+                    int stock = Integer.parseInt(table.getModel().getValueAt(table.convertRowIndexToModel(row), 3).toString());
+                    c.setForeground(stock < 5 ? POINT_RED : (isSelected ? Color.WHITE : TEXT_WHITE));
+                } catch (Exception e) { c.setForeground(TEXT_WHITE); }
+                setHorizontalAlignment(JLabel.CENTER);
+                return c;
+            }
+        });
+    }
+
+    private void clearProductFields() {
+        currentSelectedProductId = null; nameField.setText(""); pointField.setText(""); stockField.setText("");
+        imagePathField.setText(""); descArea.setText(""); productSearchField.setText("");
+        imagePreviewLabel.setIcon(null); imagePreviewLabel.setText("이미지 없음"); productTable.clearSelection();
+    }
+
+    private void clearUserFields() {
+        currentSelectedUserId = null; userIdField.setText(""); userIdField.setEditable(true);
+        userPwField.setText(""); nicknameField.setText(""); userPointField.setText(""); userSearchField.setText(""); 
+        adminCheck.setSelected(false); userTable.clearSelection();
+    }
+
+    private JScrollPane createStyledScrollPane(JTable table) {
+        JScrollPane scroll = new JScrollPane(table);
+        scroll.getViewport().setBackground(BG_DARK); scroll.setBorder(new LineBorder(POINT_PURPLE, 1));
+        return scroll;
+    }
 
     private JTextField createStyledTextField(int size) {
-        JTextField tf = new JTextField(size);
-        tf.setBackground(BG_DARK);
-        tf.setForeground(Color.WHITE);
-        tf.setCaretColor(Color.WHITE);
-        tf.setBorder(new LineBorder(new Color(80, 80, 100)));
+        JTextField tf = new JTextField(size); tf.setBackground(BG_DARK); tf.setForeground(Color.WHITE);
+        tf.setCaretColor(Color.WHITE); tf.setBorder(new CompoundBorder(new LineBorder(new Color(80, 80, 100)), new EmptyBorder(2,5,2,5)));
         return tf;
     }
 
     private JButton createStyledButton(String text, Color bg) {
-        JButton btn = new JButton(text);
-        btn.setBackground(bg);
-        btn.setForeground(Color.WHITE);
-        btn.setFocusPainted(false);
-        btn.setBorderPainted(false);
-        btn.setFont(new Font("맑은 고딕", Font.BOLD, 12));
-        return btn;
+        JButton btn = new JButton(text); btn.setBackground(bg); btn.setForeground(Color.WHITE);
+        btn.setFocusPainted(false); btn.setBorderPainted(false); btn.setFont(new Font("맑은 고딕", Font.BOLD, 12));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR)); return btn;
     }
 
     private JTable createStyledTable(DefaultTableModel model) {
-        JTable table = new JTable(model);
-        table.setBackground(BG_CARD);
-        table.setForeground(Color.WHITE);
-        table.setGridColor(new Color(60, 60, 90));
-        table.setRowHeight(30);
-        table.setSelectionBackground(POINT_PURPLE);
-        table.setSelectionForeground(Color.WHITE);
-
-        JTableHeader header = table.getTableHeader();
-        header.setBackground(new Color(50, 50, 80));
-        header.setForeground(POINT_CYAN);
-        header.setFont(new Font("맑은 고딕", Font.BOLD, 13));
-
+        JTable table = new JTable(model); table.setBackground(BG_CARD); table.setForeground(TEXT_WHITE);
+        table.setGridColor(new Color(60, 60, 90)); table.setRowHeight(35); table.setSelectionBackground(POINT_PURPLE);
+        JTableHeader header = table.getTableHeader(); header.setBackground(new Color(50, 50, 80)); header.setForeground(POINT_CYAN);
+        
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-        for(int i=0; i<table.getColumnCount(); i++) {
-            table.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
-        }
+        table.setDefaultRenderer(Object.class, centerRenderer);
+        
         return table;
     }
 
     private TitledBorder createCustomTitledBorder(String title) {
         TitledBorder tb = BorderFactory.createTitledBorder(new LineBorder(POINT_PURPLE), title);
-        tb.setTitleColor(POINT_CYAN);
-        tb.setTitleFont(new Font("맑은 고딕", Font.BOLD, 13));
-        return tb;
-    }
-
-    // --- 비즈니스 로직 ---
-
-    private void handleProductAction(String type) {
-        try {
-            if (type.equals("DELETE")) {
-                if (currentSelectedProductId == null) throw new Exception("삭제할 상품을 선택하세요.");
-                if (JOptionPane.showConfirmDialog(this, "상품을 삭제하시겠습니까?", "확인", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION)
-                    productsDAO.deleteProduct(currentSelectedProductId);
-            } else {
-                ProductsDTO p = new ProductsDTO(currentSelectedProductId, nameField.getText().trim(), 
-                    Integer.parseInt(pointField.getText()), Integer.parseInt(stockField.getText()), 
-                    imagePathField.getText(), descArea.getText());
-                if (type.equals("INSERT")) productsDAO.insertProduct(p);
-                else productsDAO.updateProduct(p);
-            }
-            refreshAllData(); clearProductFields(); if (refreshCallback != null) refreshCallback.run();
-        } catch (Exception ex) { JOptionPane.showMessageDialog(this, "오류: " + ex.getMessage()); }
-    }
-
-    private void handleUserAction(String type) {
-        try {
-            if (currentSelectedUserId == null) throw new Exception("사용자를 선택하세요.");
-            if (type.equals("DELETE")) {
-                if (JOptionPane.showConfirmDialog(this, "사용자를 탈퇴시키겠습니까?", "확인", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION)
-                    userDAO.deleteUser(currentSelectedUserId);
-            } else {
-                UserDTO u = new UserDTO(); u.setUserId(currentSelectedUserId); 
-                u.setNickname(nicknameField.getText().trim()); u.setBalancePoints(Integer.parseInt(userPointField.getText()));
-                u.setAdmin(adminCheck.isSelected());
-                userDAO.updateUserByAdmin(u);
-            }
-            refreshAllData(); JOptionPane.showMessageDialog(this, "처리 완료");
-        } catch (Exception ex) { JOptionPane.showMessageDialog(this, "오류: " + ex.getMessage()); }
-    }
-
-    private void clearProductFields() {
-        currentSelectedProductId = null; nameField.setText(""); pointField.setText("");
-        stockField.setText(""); imagePathField.setText(""); descArea.setText("");
-        productTable.clearSelection();
+        tb.setTitleColor(POINT_CYAN); tb.setTitleFont(new Font("맑은 고딕", Font.BOLD, 13)); return tb;
     }
 
     private void loadProductList() {

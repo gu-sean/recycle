@@ -5,6 +5,8 @@ import db.DAO.UserDAO;
 import db.DTO.UserDTO; 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.*;
 import java.sql.SQLException;
@@ -19,10 +21,10 @@ public class LoginPanel extends JFrame implements ActionListener {
     // --- 테마 설정 ---
     protected static final Color BG_DARK = new Color(20, 15, 40);   
     protected static final Color BG_LIGHT = new Color(40, 45, 90);     
-    protected static final Color POINT_PURPLE = new Color(150, 100, 255); // 가입 완료 및 주요 버튼색
+    protected static final Color POINT_PURPLE = new Color(150, 100, 255); 
     protected static final Color POINT_CYAN = new Color(0, 255, 240);     
     protected static final Color FIELD_BG = new Color(255, 255, 255, 25); 
-    protected static final Color BTN_SUB = new Color(70, 70, 120);       // 비활성/보조 버튼색
+    protected static final Color BTN_SUB = new Color(70, 70, 120);       
 
     public LoginPanel() {
         initDAO();
@@ -50,7 +52,6 @@ public class LoginPanel extends JFrame implements ActionListener {
         mainPanel.setBorder(new EmptyBorder(60, 50, 60, 50));
         setContentPane(mainPanel);
 
-        // 제목
         JLabel titleLabel = new JLabel("분리수거 서비스");
         titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 32));
         titleLabel.setForeground(POINT_PURPLE);
@@ -58,7 +59,6 @@ public class LoginPanel extends JFrame implements ActionListener {
         mainPanel.add(titleLabel);
         mainPanel.add(Box.createVerticalStrut(50));
 
-        // 입력창
         mainPanel.add(createLabel("아이디"));
         idField = new JTextField();
         styleField(idField);
@@ -68,10 +68,10 @@ public class LoginPanel extends JFrame implements ActionListener {
         mainPanel.add(createLabel("비밀번호"));
         passwordField = new JPasswordField();
         styleField(passwordField);
+        passwordField.addActionListener(e -> handleLogin()); // 엔터키 로그인
         mainPanel.add(passwordField);
         mainPanel.add(Box.createVerticalStrut(50));
 
-        // 하단 버튼
         loginButton = createStyledButton("로그인", POINT_PURPLE, Color.WHITE);
         registerButton = createStyledButton("회원가입", BTN_SUB, new Color(220, 220, 220));
 
@@ -102,7 +102,7 @@ public class LoginPanel extends JFrame implements ActionListener {
         f.setForeground(Color.WHITE);
         f.setCaretColor(POINT_CYAN);
         f.setFont(new Font("맑은 고딕", Font.PLAIN, 15));
-        f.setOpaque(false); // 입력 시 흰색 변함 방지
+        f.setOpaque(false);
         f.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(100, 100, 180), 1),
             BorderFactory.createEmptyBorder(5, 10, 5, 10)
@@ -147,7 +147,7 @@ public class LoginPanel extends JFrame implements ActionListener {
     }
 
     // ==========================================================
-    // [내부 클래스] 회원가입 창 (중복확인 버튼 색상 통일)
+    // [내부 클래스] 회원가입 창 (오류 해결 버전)
     // ==========================================================
     class RegisterWindow extends JDialog implements ActionListener {
         private JTextField nickF, idF;
@@ -185,7 +185,14 @@ public class LoginPanel extends JFrame implements ActionListener {
             nickRow.setOpaque(false);
             nickRow.setMaximumSize(new Dimension(350, 45));
             nickF = new JTextField(); styleField(nickF);
-            // 가입 완료 버튼과 동일한 색상 적용
+            
+            // 오류 해결: DocumentListener 익명 객체 사용
+            nickF.getDocument().addDocumentListener(new DocumentListener() {
+                public void insertUpdate(DocumentEvent e) { isNickOk = false; }
+                public void removeUpdate(DocumentEvent e) { isNickOk = false; }
+                public void changedUpdate(DocumentEvent e) { isNickOk = false; }
+            });
+
             checkNickB = createColoredSmallBtn("중복확인", POINT_PURPLE);
             nickRow.add(nickF, BorderLayout.CENTER);
             nickRow.add(checkNickB, BorderLayout.EAST);
@@ -199,7 +206,14 @@ public class LoginPanel extends JFrame implements ActionListener {
             idRow.setOpaque(false);
             idRow.setMaximumSize(new Dimension(350, 45));
             idF = new JTextField(); styleField(idF);
-            // 가입 완료 버튼과 동일한 색상 적용
+
+            // 오류 해결: DocumentListener 익명 객체 사용
+            idF.getDocument().addDocumentListener(new DocumentListener() {
+                public void insertUpdate(DocumentEvent e) { isIdOk = false; }
+                public void removeUpdate(DocumentEvent e) { isIdOk = false; }
+                public void changedUpdate(DocumentEvent e) { isIdOk = false; }
+            });
+
             checkIdB = createColoredSmallBtn("중복확인", POINT_PURPLE);
             idRow.add(idF, BorderLayout.CENTER);
             idRow.add(checkIdB, BorderLayout.EAST);
@@ -227,11 +241,11 @@ public class LoginPanel extends JFrame implements ActionListener {
         private JButton createColoredSmallBtn(String txt, Color bgColor) {
             JButton b = new JButton(txt);
             b.setPreferredSize(new Dimension(95, 45));
-            b.setBackground(bgColor); // 전달받은 POINT_PURPLE 적용
+            b.setBackground(bgColor);
             b.setForeground(Color.WHITE);
             b.setFont(new Font("맑은 고딕", Font.BOLD, 11));
             b.setFocusPainted(false);
-            b.setBorderPainted(false); // 가입 완료 버튼처럼 테두리 제거하여 깔끔하게 처리
+            b.setBorderPainted(false);
             b.setCursor(new Cursor(Cursor.HAND_CURSOR));
             return b;
         }
@@ -253,7 +267,7 @@ public class LoginPanel extends JFrame implements ActionListener {
                 boolean isDup = type.equals("id") ? dao.isIdDuplicate(value) : dao.isNicknameDuplicate(value);
                 if (type.equals("id")) isIdOk = !isDup; else isNickOk = !isDup;
                 JOptionPane.showMessageDialog(this, isDup ? "이미 사용 중입니다." : "사용 가능합니다.");
-            } catch (Exception ex) {}
+            } catch (Exception ex) { ex.printStackTrace(); }
         }
 
         private void handleJoin() {
@@ -261,11 +275,14 @@ public class LoginPanel extends JFrame implements ActionListener {
                 JOptionPane.showMessageDialog(this, "중복 확인이 필요합니다."); return;
             }
             try {
-                if (dao.registerUser(idF.getText().trim(), new String(pwF.getPassword()), nickF.getText().trim())) {
+                String id = idF.getText().trim();
+                String pw = new String(pwF.getPassword());
+                String nick = nickF.getText().trim();
+                if (dao.registerUser(id, pw, nick)) {
                     JOptionPane.showMessageDialog(this, "가입이 완료되었습니다!");
                     this.dispose();
                 }
-            } catch (Exception ex) {}
+            } catch (Exception ex) { ex.printStackTrace(); }
         }
     }
 }
