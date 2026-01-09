@@ -45,7 +45,6 @@ public class UserDAO {
         }
     }
 
-
     public UserDTO loginUser(String id, String password) throws SQLException {
         String sql = "SELECT USER_ID, NICKNAME, BALANCE_POINTS, TOTAL_POINTS, ATTENDANCE_STREAK, IS_ADMIN FROM " + USERS_TABLE + 
                      " WHERE USER_ID = ? AND PASSWORD = ?";
@@ -72,7 +71,6 @@ public class UserDAO {
         return null; 
     }
 
-
     public boolean isIdDuplicate(String id) throws SQLException {
         String sql = "SELECT COUNT(*) FROM " + USERS_TABLE + " WHERE USER_ID = ?";
         
@@ -88,7 +86,6 @@ public class UserDAO {
         }
         return false;
     }
-
 
     public boolean isNicknameDuplicate(String nickname) throws SQLException {
         String sql = "SELECT COUNT(*) FROM " + USERS_TABLE + " WHERE NICKNAME = ?";
@@ -106,7 +103,6 @@ public class UserDAO {
         return false;
     }
 
-   
     public boolean registerUser(String id, String password, String nickname) throws SQLException {
         String sql = "INSERT INTO " + USERS_TABLE + " (USER_ID, PASSWORD, NICKNAME, BALANCE_POINTS, TOTAL_POINTS, ATTENDANCE_STREAK, IS_ADMIN) VALUES (?, ?, ?, 0, 0, 0, FALSE)";
         
@@ -155,7 +151,6 @@ public class UserDAO {
         return getUserById(userID);
     }
     
-
     public int getUserPoints(String userID) throws SQLException {
         String sql = "SELECT BALANCE_POINTS FROM " + USERS_TABLE + " WHERE USER_ID = ?";
         
@@ -198,7 +193,6 @@ public class UserDAO {
         }
     }
 
-
  
     public void updateUserPoint(UserDTO user) throws SQLException {
         String sql = "UPDATE " + USERS_TABLE + " SET BALANCE_POINTS = ? WHERE USER_ID = ?";
@@ -217,7 +211,6 @@ public class UserDAO {
             throw e;
         }
     }
-
 
     public void updateQuizResult(UserDTO user) throws SQLException {
          String sql = "UPDATE " + USERS_TABLE + " SET TOTAL_POINTS = ?, BALANCE_POINTS = ?, ATTENDANCE_STREAK = ? WHERE USER_ID = ?";
@@ -239,7 +232,6 @@ public class UserDAO {
          }
     }
 
-  
     public List<RankingDTO> getAllUserRankings() throws SQLException {
  
         String sql = "SELECT USER_ID, NICKNAME, BALANCE_POINTS FROM " + USERS_TABLE + 
@@ -288,7 +280,6 @@ public class UserDAO {
         return rankList;
     }
     
- 
     public void deleteUser(String userId) throws SQLException {
         String sql = "DELETE FROM " + USERS_TABLE + " WHERE USER_ID = ?";
 

@@ -25,7 +25,7 @@ public class RecycleLogDAO {
     private final GuideDAO guideDAO;
     private final PointLogDAO pointLogDAO; 
 
- 
+
     public RecycleLogDAO() throws Exception {
         this.userDAO = new UserDAO(); 
         this.guideDAO = new GuideDAO();
@@ -36,7 +36,7 @@ public class RecycleLogDAO {
         
     }
     
-   
+  
     public List<String> getTodayRecycleItems(String userId) throws SQLException {
         List<String> itemNames = new ArrayList<>();
         
@@ -79,6 +79,7 @@ public class RecycleLogDAO {
     }
 
 
+
     public Set<String> getTodayEarnedItems(String userId) throws SQLException {
         Set<String> earnedItems = new HashSet<>();
         String todayStart = new SimpleDateFormat("yyyy-MM-dd").format(new Date()) + " 00:00:00";
@@ -101,6 +102,7 @@ public class RecycleLogDAO {
                         
                         for (String entry : itemEntries) {
                             int endIndex = entry.indexOf(" (");
+                 
                             if (endIndex != -1) { 
                                 earnedItems.add(entry.substring(0, endIndex).trim());
                             }
@@ -130,7 +132,7 @@ public class RecycleLogDAO {
                 int itemPoint = itemPoints.getOrDefault(item, 0);
                 
                 if (todayEarnedItems.contains(item)) {
-               
+              
                     itemPoint = 0; 
                 } else {
                     totalPointsEarned += itemPoint; 
@@ -138,7 +140,7 @@ public class RecycleLogDAO {
                          todayEarnedItems.add(item); 
                     }
                 }
-                
+              
                 int logPoint = itemPoints.getOrDefault(item, 0); 
                 
                 if (!firstItem) {
@@ -149,6 +151,7 @@ public class RecycleLogDAO {
             }
             
             String detailItems = detailBuilder.toString();
+   
             String logDetail = "분리수거: " + (detailItems.length() > 0 ? detailItems : "적립 항목 없음");
             if (logDetail.length() > 255) {
                 logDetail = logDetail.substring(0, 252) + "...";

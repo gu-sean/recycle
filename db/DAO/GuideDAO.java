@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.LinkedHashMap;
 
 public class GuideDAO {
+    
     private static final String CATEGORIES_TABLE = "CATEGORIES";
     private static final String ITEMS_TABLE = "ITEMS"; 
 

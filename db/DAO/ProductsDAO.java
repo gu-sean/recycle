@@ -35,7 +35,7 @@ public class ProductsDAO {
             e.printStackTrace();
         }
     }
-
+ 
     public List<ProductsDTO> getAllProducts() {
         List<ProductsDTO> list = new ArrayList<>();
 
@@ -54,9 +54,10 @@ public class ProductsDAO {
             rs = pstmt.executeQuery();
 
             while (rs.next()) {
+       
                 ProductsDTO product = new ProductsDTO(
                     rs.getString("PRODUCT_ID"), 	
-                    rs.getString("PRODUCT_NAME"), 		
+                    rs.getString("PRODUCT_NAME"), 	
                     rs.getInt("REQUIRED_POINTS") 		
                 );
 

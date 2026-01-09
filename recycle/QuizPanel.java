@@ -237,7 +237,7 @@ public class QuizPanel extends JPanel {
             correctCount++;
             messageLabel.setText("✅ 정답입니다!");
         } else {
-       
+        
             wrongQuizzes.add(new WrongAnswer(current, selectedItem.getAnswer()));
             messageLabel.setText("❌ 오답! 정답은 '" + current.getCorrectAnswer() + "'입니다.");
         }

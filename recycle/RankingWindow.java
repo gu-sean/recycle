@@ -65,7 +65,7 @@ public class RankingWindow extends JPanel {
         loadRankingList();
     }
 
-   
+
     public void refreshRanking() {
         loadRankingList();
     }
@@ -103,7 +103,7 @@ public class RankingWindow extends JPanel {
             noRank.setFont(LABEL_FONT);
             rankListPanel.add(noRank);
         } else {
-
+     
             for (int i = 0; i < rankingList.size(); i++) {
                 RankingEntry entry = rankingList.get(i);
                 int rank = i + 1; 
@@ -127,7 +127,7 @@ public class RankingWindow extends JPanel {
         itemPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         Color bgColor = Color.WHITE;
-
+    
         if (rank <= RANK_COLORS.length) { 
             bgColor = RANK_COLORS[rank - 1];
         }

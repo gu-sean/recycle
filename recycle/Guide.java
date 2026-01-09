@@ -91,7 +91,7 @@ public class Guide extends JPanel {
         
         add(mainSplit, BorderLayout.CENTER);
 
-     
+       
         categoryList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 String selectedCategory = categoryList.getSelectedValue();
@@ -151,7 +151,7 @@ public class Guide extends JPanel {
             }
 
             if (foundItem != null) {
-           
+            
                 categoryList.setSelectedValue(foundItem.categoryName, true);
                 
                 loadItems(categoryMap.get(foundItem.categoryName), foundItem.categoryName);

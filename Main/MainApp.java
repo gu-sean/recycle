@@ -39,7 +39,7 @@ public class MainApp extends JFrame {
         tabbedPane.setFont(new Font("맑은 고딕", Font.BOLD, 14));
 
         try {
-
+   
             RankingWindow rankingPanel = new RankingWindow(currentUser.getUserId()); 
             
             Runnable rankUpdateCallback = () -> {
@@ -74,7 +74,7 @@ public class MainApp extends JFrame {
     }
 
     public static void main(String[] args) {
-
+     
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); 
         } catch (Exception e) {

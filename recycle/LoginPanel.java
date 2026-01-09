@@ -49,6 +49,7 @@ public class LoginPanel extends JFrame implements ActionListener {
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
+        
         gbc.gridx = 0; gbc.gridy = 0; inputPanel.add(new JLabel("ID:", SwingConstants.RIGHT), gbc);
         gbc.gridx = 1; gbc.gridy = 0; idField = new JTextField(15); inputPanel.add(idField, gbc);
 
