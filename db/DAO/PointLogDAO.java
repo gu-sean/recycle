@@ -11,9 +11,13 @@ import java.util.List;
 import db.DTO.PointLogDTO; 
 
 public class PointLogDAO {
+    
     private static final String POINT_LOGS_TABLE = "POINT_LOGS";
+
     public PointLogDAO() {
     }
+
+
     public void insertPointLog(Connection conn, String userId, String type, String detail, int points) throws SQLException {
         String sql = "INSERT INTO " + POINT_LOGS_TABLE + 
                      " (USER_ID, TIMESTAMP, TYPE, DETAIL, POINT) VALUES (?, ?, ?, ?, ?)";
@@ -29,17 +33,21 @@ public class PointLogDAO {
         }
     }
 
+
     public void insertSpendLog(Connection conn, String userId, String productName, int points) throws SQLException {
         int spendPoints = (points > 0) ? -points : points;
         insertPointLog(conn, userId, "SPEND", "상품 구매: " + productName, spendPoints);
     }
 
+ 
     public void insertEarnLog(Connection conn, String userId, String activity, int points) throws SQLException {
         insertPointLog(conn, userId, "EARN", activity, points);
     }
 
+  
     public List<PointLogDTO> getPointLogsByUserId(Connection conn, String userId) throws SQLException {
         List<PointLogDTO> list = new ArrayList<>();
+        
 
         String sql = "SELECT LOG_ID, USER_ID, TYPE, DETAIL, POINT, TIMESTAMP FROM " + POINT_LOGS_TABLE + 
                      " WHERE USER_ID = ? ORDER BY TIMESTAMP DESC";
@@ -62,7 +70,7 @@ public class PointLogDAO {
         }
         return list;
     }
-    
+   
     public static void initializeDatabase() {
         String createTableSQL = "CREATE TABLE IF NOT EXISTS " + POINT_LOGS_TABLE + " ("
                 + "`LOG_ID` INT NOT NULL AUTO_INCREMENT,"

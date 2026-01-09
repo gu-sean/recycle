@@ -4,11 +4,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 public class PointLogDTO {
+    
     private final int logId;
     private final String userId;
     private final String type;    
     private final String detail;
-    private final int amount;     
+    private final int amount;    
     private final LocalDateTime timestamp; 
 
     public PointLogDTO(int logId, String userId, String type, String detail, int amount, LocalDateTime timestamp) {
@@ -27,11 +28,13 @@ public class PointLogDTO {
     public int getAmount() { return amount; }
     public LocalDateTime getTimestamp() { return timestamp; }
 
+  
     public String getFormattedTimestamp() {
         if (timestamp == null) return "-";
         return timestamp.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
     }
 
+ 
     public String getFormattedAmount() {
         if (amount > 0) {
             return "+" + amount + " P";
@@ -39,6 +42,7 @@ public class PointLogDTO {
         return amount + " P"; 
     }
 
+   
     public String getTypeKorean() {
         if ("EARN".equalsIgnoreCase(type)) return "적립";
         if ("SPEND".equalsIgnoreCase(type)) return "사용";

@@ -1,5 +1,6 @@
 package db.DTO;
 
+
 public class RecycleLogDTO {
 
     private final int logId;
@@ -15,6 +16,7 @@ public class RecycleLogDTO {
         this.quantity = quantity;
         this.points = points;
     }
+    
     
     public int getLogId() {
         return logId;
@@ -36,6 +38,8 @@ public class RecycleLogDTO {
         return points;
     }
     
+
+
     @Override
     public String toString() {
         return "RecycleLogDTO{" +

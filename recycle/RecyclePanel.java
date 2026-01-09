@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.sql.SQLException; 
 
 public class RecyclePanel extends JPanel {
+
     private final String userId;
     private final RecycleLogDAO logDAO;
     private final Map<String, Integer> itemPoints; 
@@ -35,12 +36,14 @@ public class RecyclePanel extends JPanel {
     
     private static final Color BUTTON_BACKGROUND = new Color(220, 240, 255); 
     private static final Color TOTAL_ROW_BACKGROUND = BUTTON_BACKGROUND; 
-
+    
     private static final String DEFAULT_SELECTION_TEXT = "--- 품목 선택 ---";
     private static final String[] CURRENT_LOG_COLUMN_NAMES = {"순번", "품목", "포인트"};
-
+    
     private static final Font KOREAN_FONT = new Font("맑은 고딕", Font.PLAIN, 15);
     private static final Font KOREAN_BOLD_FONT = new Font("맑은 고딕", Font.BOLD, 15);
+
+
 
     public RecyclePanel(String userId, Runnable rankUpdateCallback) {
         this.userId = userId;
@@ -66,10 +69,12 @@ public class RecyclePanel extends JPanel {
         }
     }
     
+
     public RecyclePanel(String userId) {
         this(userId, null);
     }
     
+
     private Map<String, Integer> initializeItemPoints() {
         Map<String, Integer> map = new LinkedHashMap<>();
         map.put("종이", 15);
@@ -88,7 +93,7 @@ public class RecyclePanel extends JPanel {
         
         JPanel leftPanel = createInputPanel();
         leftPanel.setPreferredSize(new Dimension(200, 400)); 
-
+ 
         JPanel rightPanelContainer = new JPanel(new BorderLayout());
         rightPanelContainer.setPreferredSize(new Dimension(350, 400));
         
@@ -102,6 +107,7 @@ public class RecyclePanel extends JPanel {
         rightPanelContainer.add(titleLabel, BorderLayout.NORTH);
         rightPanelContainer.add(currentLogPanel, BorderLayout.CENTER);
         
+     
         add(leftPanel, BorderLayout.WEST);
         add(rightPanelContainer, BorderLayout.CENTER);
     }
@@ -111,6 +117,7 @@ public class RecyclePanel extends JPanel {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBorder(BorderFactory.createEmptyBorder(20, 10, 20, 10)); 
         
+    
         itemComboBox = new JComboBox<>(itemPoints.keySet().toArray(new String[0]));
         itemComboBox.insertItemAt(DEFAULT_SELECTION_TEXT, 0);
         itemComboBox.setSelectedIndex(0);
@@ -131,7 +138,9 @@ public class RecyclePanel extends JPanel {
       
         addButton.setBackground(BUTTON_BACKGROUND);
 
+
         panel.add(Box.createVerticalGlue()); 
+        
         panel.add(itemComboBox);
  
         panel.add(Box.createVerticalStrut(25)); 
@@ -149,11 +158,13 @@ public class RecyclePanel extends JPanel {
                         : itemPoints.getOrDefault(selectedItem, 0);
             pointLabel.setText("선택 포인트: " + point + " P");
         });
+        
         return panel;
     }
     
     private JPanel createCurrentLogPanel() {
         JPanel panel = new JPanel(new BorderLayout());
+        
         tableModel = new DefaultTableModel(CURRENT_LOG_COLUMN_NAMES, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -219,6 +230,7 @@ public class RecyclePanel extends JPanel {
         if (dataRowCount > 0 && tableModel.getValueAt(dataRowCount - 1, 1).equals("합계")) {
             dataRowCount--;
         }
+
         for (int i = 0; i < dataRowCount; i++) {
             tableModel.setValueAt(i + 1, i, 0); 
         }
@@ -228,10 +240,12 @@ public class RecyclePanel extends JPanel {
         if (itemName == null || itemName.equals(DEFAULT_SELECTION_TEXT)) {
             return;
         }
+        
         if (loadedItems.contains(itemName) || unsavedItems.contains(itemName)) {
             JOptionPane.showMessageDialog(this, "이미 오늘 목록에 추가된 품목입니다: " + itemName, "경고", JOptionPane.WARNING_MESSAGE);
             return;
         }
+
         unsavedItems.add(itemName);
         
         rebuildTableFromInternalLists();
@@ -245,23 +259,29 @@ public class RecyclePanel extends JPanel {
         if (tableModel.getRowCount() > 0 && tableModel.getValueAt(tableModel.getRowCount() - 1, 1).equals("합계")) {
             tableModel.removeRow(tableModel.getRowCount() - 1);
         }
+
         totalPoint = 0;
  
+
         for (int i = 0; i < tableModel.getRowCount(); i++) {
             Object pointValue = tableModel.getValueAt(i, 2);
+            
             if (pointValue instanceof String) {
                 try {
+         
                     totalPoint += Integer.parseInt(((String) pointValue).replace("P", "").trim());
                 } catch (NumberFormatException ignored) {
                 }
             }
         }
         
+     
         tableModel.addRow(new Vector<>(List.of(
             "", "합계", totalPoint + "P" 
         )));
     }
     
+ 
     public void loadLogsAndRefreshUI() {
         tableModel.setRowCount(0);
         loadedItems.clear(); 
@@ -272,10 +292,11 @@ public class RecyclePanel extends JPanel {
              calculateTotalPoints(); 
              return;
         }
-        try {
+
+        try { 
             List<String> itemsFromDB = logDAO.getTodayRecycleItems(userId); 
             loadedItems.addAll(itemsFromDB);
-
+            
             rebuildTableFromInternalLists();
             
         } catch (SQLException e) {
@@ -304,6 +325,8 @@ public class RecyclePanel extends JPanel {
         calculateTotalPoints();
     }
 
+
+     
     private void handleSaveLogs(ActionEvent e) {
         if (logDAO == null) {
              JOptionPane.showMessageDialog(this, "DB 연결 오류로 기능을 사용할 수 없습니다.", "오류", JOptionPane.ERROR_MESSAGE);
@@ -326,12 +349,14 @@ public class RecyclePanel extends JPanel {
             } else {
                  message = String.format("총 %d건의 기록이 저장되었으나, 이미 오늘 적립된 품목이거나 포인트가 0점인 항목입니다. (획득 포인트: 0 P)", itemsToSave.size());
             }
+            
             JOptionPane.showMessageDialog(this, message, "저장 완료", JOptionPane.INFORMATION_MESSAGE);
             
             if (rankUpdateCallback != null) {
                 rankUpdateCallback.run(); 
             }
-        
+            
+       
             loadLogsAndRefreshUI();
     
         } catch (SQLException ex) { 
@@ -344,10 +369,12 @@ public class RecyclePanel extends JPanel {
     }
     
     private class TotalRowRenderer extends DefaultTableCellRenderer {
+        
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value,
                                                          boolean isSelected, boolean hasFocus,
                                                          int row, int column) {
+            
             setHorizontalAlignment(SwingConstants.CENTER);
             
             Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
@@ -362,15 +389,19 @@ public class RecyclePanel extends JPanel {
                 c.setBackground(table.getBackground());
                 c.setFont(KOREAN_FONT);
             }
+
             return c;
         }
     }
 	private class CenterAlignedRenderer extends DefaultListCellRenderer {
+	        
 	        @Override
 	        public Component getListCellRendererComponent(JList<?> list, Object value, int index, 
 	                                                      boolean isSelected, boolean cellHasFocus) {
+	
 	            JLabel renderer = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
 	            renderer.setHorizontalAlignment(CENTER);
+	            
 	            return renderer;
 	        }
 	}

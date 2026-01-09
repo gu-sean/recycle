@@ -65,6 +65,7 @@ public class RankingWindow extends JPanel {
         loadRankingList();
     }
 
+   
     public void refreshRanking() {
         loadRankingList();
     }
@@ -75,13 +76,16 @@ public class RankingWindow extends JPanel {
             infoLabel.setText("<html><p align='center'>[내 정보] DB 연결 오류</p></html>");
             return;
         }
-        try {
-            List<RankingManager.RankingEntry> rankingList = manager.getSortedRankingList();
 
+        try {
+
+            List<RankingManager.RankingEntry> rankingList = manager.getSortedRankingList();
+            
             List<RankingManager.RankingEntry> topRankingList = rankingList.subList(0, Math.min(rankingList.size(), MAX_RANK_DISPLAY));
             
             updateRankListUI(topRankingList);
 
+  
             updateMyRank(rankingList); 
 
         } catch (SQLException e) {
@@ -89,6 +93,7 @@ public class RankingWindow extends JPanel {
             infoLabel.setText("<html><p align='center'>[내 정보] 랭킹 로드 오류</p></html>");
         }
     }
+
 
     private void updateRankListUI(List<RankingEntry> rankingList) {
         rankListPanel.removeAll();
@@ -98,26 +103,31 @@ public class RankingWindow extends JPanel {
             noRank.setFont(LABEL_FONT);
             rankListPanel.add(noRank);
         } else {
+
             for (int i = 0; i < rankingList.size(); i++) {
                 RankingEntry entry = rankingList.get(i);
                 int rank = i + 1; 
 
                 rankListPanel.add(createRankItemPanel(rank, entry));
 
+            
                 if (i < rankingList.size() - 1) { 
                     rankListPanel.add(new JSeparator(SwingConstants.HORIZONTAL));
                 }
             }
         }
+
         rankListPanel.revalidate();
         rankListPanel.repaint();
     }
+
 
     private JPanel createRankItemPanel(int rank, RankingEntry entry) {
         JPanel itemPanel = new JPanel(new BorderLayout(15, 5));
         itemPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         Color bgColor = Color.WHITE;
+
         if (rank <= RANK_COLORS.length) { 
             bgColor = RANK_COLORS[rank - 1];
         }
@@ -144,8 +154,10 @@ public class RankingWindow extends JPanel {
                 BorderFactory.createEmptyBorder(8, 8, 8, 8)
             ));
         }
+
         return itemPanel;
     }
+
 
     public void updateMyRank(List<RankingEntry> rankingList) {
         if (manager == null) {
@@ -153,8 +165,10 @@ public class RankingWindow extends JPanel {
             this.userCurrentPoints = 0;
             return;
         }
+
         String myInfoHtml = manager.getMyRankInfo(currentUserId, rankingList);
         infoLabel.setText(myInfoHtml);
+
 
         try {
             int start = myInfoHtml.indexOf("현재 포인트: <strong>") + "현재 포인트: <strong>".length();

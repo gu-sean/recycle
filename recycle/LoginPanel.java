@@ -11,17 +11,21 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.sql.SQLException;
 
+
 public class LoginPanel extends JFrame implements ActionListener {
+
     private JTextField idField;
     private JPasswordField passwordField;
     private JButton loginButton, registerButton;
     
     private UserDAO userDAO;
     
+
     private static final Color BUTTON_BACKGROUND = new Color(220, 240, 255);
     
     public LoginPanel() {
         try {
+
             this.userDAO = new UserDAO();
         } catch (Exception e) { 
             JOptionPane.showMessageDialog(null, "DB 연결 또는 초기화 오류: " + e.getMessage() + "\n프로그램을 종료합니다.", "오류", JOptionPane.ERROR_MESSAGE);
@@ -57,6 +61,7 @@ public class LoginPanel extends JFrame implements ActionListener {
         loginButton = new JButton("로그인");
         registerButton = new JButton("회원가입");
         
+
         loginButton.setBackground(BUTTON_BACKGROUND);
         registerButton.setBackground(BUTTON_BACKGROUND);
         
@@ -111,6 +116,7 @@ public class LoginPanel extends JFrame implements ActionListener {
 
         try {
             UserDTO user = userDAO.loginUser(id, password);
+
             if (user != null) { 
                 JOptionPane.showMessageDialog(this, user.getNickname() + "님, 로그인 성공!");
                 
@@ -152,15 +158,18 @@ class RegisterPanel extends JFrame implements ActionListener {
         setLocationRelativeTo(null); 
         setLayout(new BorderLayout(10, 10));
 
+       
         JLabel titleLabel = new JLabel("회원가입", JLabel.CENTER);
         titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 24));
         add(titleLabel, BorderLayout.NORTH);
 
+      
         JPanel inputPanel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
+    
         gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 1; inputPanel.add(new JLabel("닉네임:", SwingConstants.RIGHT), gbc);
         gbc.gridx = 1; gbc.gridy = 0; nicknameField = new JTextField(FIELD_COLUMNS); inputPanel.add(nicknameField, gbc); 
         
@@ -168,6 +177,7 @@ class RegisterPanel extends JFrame implements ActionListener {
         checkNicknameButton.setBackground(BUTTON_BACKGROUND);
         inputPanel.add(checkNicknameButton, gbc);
         
+      
         gbc.gridx = 0; gbc.gridy = 1; gbc.gridwidth = 1; inputPanel.add(new JLabel("ID:", SwingConstants.RIGHT), gbc);
         gbc.gridx = 1; gbc.gridy = 1; idField = new JTextField(FIELD_COLUMNS); inputPanel.add(idField, gbc); 
         
@@ -175,8 +185,10 @@ class RegisterPanel extends JFrame implements ActionListener {
         checkIdButton.setBackground(BUTTON_BACKGROUND);
         inputPanel.add(checkIdButton, gbc);
 
+      
         gbc.gridx = 0; gbc.gridy = 2; inputPanel.add(new JLabel("PW:", SwingConstants.RIGHT), gbc);
         
+
         gbc.gridx = 1; gbc.gridy = 2; gbc.gridwidth = 1; 
         passwordField = new JPasswordField(FIELD_COLUMNS); 
         
@@ -184,6 +196,7 @@ class RegisterPanel extends JFrame implements ActionListener {
 
         add(inputPanel, BorderLayout.CENTER);
 
+  
         registerButton = new JButton("회원가입 하기");
         registerButton.setBackground(BUTTON_BACKGROUND);
         
@@ -208,6 +221,7 @@ class RegisterPanel extends JFrame implements ActionListener {
                 isIdChecked = false;
             }
         });
+
         setVisible(true);
     }
     
@@ -224,12 +238,14 @@ class RegisterPanel extends JFrame implements ActionListener {
         }
     }
     
+     
     private void handleNicknameCheck() {
         String nickname = nicknameField.getText();
         if (nickname.isEmpty()) {
             JOptionPane.showMessageDialog(this, "닉네임을 입력하세요.");
             return;
         }
+
         try {
             if (userDAO.isNicknameDuplicate(nickname)) { 
                 JOptionPane.showMessageDialog(this, "이미 사용 중인 닉네임입니다.");
@@ -250,6 +266,7 @@ class RegisterPanel extends JFrame implements ActionListener {
             JOptionPane.showMessageDialog(this, "아이디를 입력하세요.");
             return;
         }
+
         try {
             if (userDAO.isIdDuplicate(id)) { 
                 JOptionPane.showMessageDialog(this, "이미 사용 중인 아이디입니다.");
@@ -283,12 +300,14 @@ class RegisterPanel extends JFrame implements ActionListener {
             JOptionPane.showMessageDialog(this, "아이디 중복 확인을 먼저 해주세요.");
             return;
         }
+        
         try {
             boolean success = userDAO.registerUser(id, password, nickname);
             
             if (success) {
                 JOptionPane.showMessageDialog(this, "회원가입 성공! 로그인 창으로 돌아가 로그인해주세요.");
                 
+
                 nicknameField.setText("");
                 idField.setText("");
                 passwordField.setText("");

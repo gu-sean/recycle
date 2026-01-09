@@ -16,10 +16,12 @@ import recycle.RankingWindow;
 import recycle.ProductWindow; 
 
 public class MainApp extends JFrame {
+
     private final UserDTO currentUser; 
+
     public MainApp(UserDTO user) { 
         this.currentUser = user; 
-
+        
         setTitle("분리수거 포인트 서비스 - [사용자: " + user.getNickname() + " (" + user.getUserId() + ")]");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1000, 700); 
@@ -37,13 +39,14 @@ public class MainApp extends JFrame {
         tabbedPane.setFont(new Font("맑은 고딕", Font.BOLD, 14));
 
         try {
+
             RankingWindow rankingPanel = new RankingWindow(currentUser.getUserId()); 
             
             Runnable rankUpdateCallback = () -> {
                 System.out.println("랭킹 업데이트 콜백 실행...");
                 rankingPanel.refreshRanking();
             };
-
+            
             RecyclePanel recyclePanel = new RecyclePanel(currentUser.getUserId(), rankUpdateCallback); 
             tabbedPane.addTab("분리수거 및 기록", new JScrollPane(recyclePanel));
             
@@ -52,7 +55,7 @@ public class MainApp extends JFrame {
             
             QuizPanel quizPanel = new QuizPanel(currentUser, rankUpdateCallback); 
             tabbedPane.addTab("분리수거 퀴즈", quizPanel);
-
+            
             ProductWindow productPanel = new ProductWindow(currentUser);
             tabbedPane.addTab("상품 구매/교환", new JScrollPane(productPanel));
             
@@ -66,10 +69,12 @@ public class MainApp extends JFrame {
                  "오류", JOptionPane.ERROR_MESSAGE);
              System.exit(1); 
         }
+        
         return tabbedPane;
     }
 
     public static void main(String[] args) {
+
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); 
         } catch (Exception e) {
@@ -88,7 +93,7 @@ public class MainApp extends JFrame {
                 "심각한 오류", JOptionPane.ERROR_MESSAGE);
             System.exit(1);
         }
-
+        
         SwingUtilities.invokeLater(() -> {
             new LoginPanel(); 
         });

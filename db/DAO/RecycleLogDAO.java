@@ -18,20 +18,25 @@ import db.DAO.PointLogDAO;
 import db.RecycleDB; 
 
 public class RecycleLogDAO {
+
     private static final String LOGS_TABLE = "POINT_LOGS"; 
     
     private final UserDAO userDAO;
     private final GuideDAO guideDAO;
     private final PointLogDAO pointLogDAO; 
 
+ 
     public RecycleLogDAO() throws Exception {
         this.userDAO = new UserDAO(); 
         this.guideDAO = new GuideDAO();
         this.pointLogDAO = new PointLogDAO(); 
     }
+
     public static void initializeDatabase() {
+        
     }
     
+   
     public List<String> getTodayRecycleItems(String userId) throws SQLException {
         List<String> itemNames = new ArrayList<>();
         
@@ -72,6 +77,7 @@ public class RecycleLogDAO {
         }
         return itemNames;
     }
+
 
     public Set<String> getTodayEarnedItems(String userId) throws SQLException {
         Set<String> earnedItems = new HashSet<>();
@@ -116,6 +122,7 @@ public class RecycleLogDAO {
             conn = RecycleDB.connect();
             conn.setAutoCommit(false);
 
+            
             StringBuilder detailBuilder = new StringBuilder();
             boolean firstItem = true;
             
@@ -123,6 +130,7 @@ public class RecycleLogDAO {
                 int itemPoint = itemPoints.getOrDefault(item, 0);
                 
                 if (todayEarnedItems.contains(item)) {
+               
                     itemPoint = 0; 
                 } else {
                     totalPointsEarned += itemPoint; 
@@ -130,6 +138,7 @@ public class RecycleLogDAO {
                          todayEarnedItems.add(item); 
                     }
                 }
+                
                 int logPoint = itemPoints.getOrDefault(item, 0); 
                 
                 if (!firstItem) {
@@ -148,7 +157,7 @@ public class RecycleLogDAO {
             if (totalPointsEarned > 0) {
                  userDAO.addPointsToUser(conn, userId, totalPointsEarned); 
             }
-
+            
             pointLogDAO.insertPointLog(conn, userId, "적립", logDetail, totalPointsEarned);
             
             conn.commit(); 
@@ -187,7 +196,9 @@ public class RecycleLogDAO {
             conn = RecycleDB.connect();
             conn.setAutoCommit(false); 
 
+            
             userDAO.addPointsToUser(conn, userId, reward); 
+            
             
             String logDetail = "퀴즈 보상: " + detail;
             if (logDetail.length() > 255) {
@@ -196,7 +207,8 @@ public class RecycleLogDAO {
             
             pointLogDAO.insertPointLog(conn, userId, "적립", logDetail, reward);
             
-            conn.commit();  
+            conn.commit(); 
+            
         } catch (SQLException e) {
             System.err.println("퀴즈 보상 기록 및 포인트 적립 중 DB 오류: " + e.getMessage());
             if (conn != null) {

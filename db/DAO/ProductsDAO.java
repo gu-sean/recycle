@@ -11,9 +11,10 @@ import java.util.List;
 import db.DTO.ProductsDTO;
 
 public class ProductsDAO {
-    private static final String DB_URL =
-    private static final String DB_ID = 
-    private static final String DB_PASSWORD = 
+
+    private static final String DB_URL ="";
+    private static final String DB_ID = "";
+    private static final String DB_PASSWORD = "";
 
     private Connection getConnection() throws SQLException {
         try {
@@ -42,9 +43,11 @@ public class ProductsDAO {
         PreparedStatement pstmt = null;
         ResultSet rs = null;
 
+ 
         String sql = "SELECT PRODUCT_ID, PRODUCT_NAME, REQUIRED_POINTS FROM PRODUCTS "
                    + "WHERE PRODUCT_NAME NOT IN ('☕ 재활용 커피 쿠폰', '🌱 친환경 에코백', '📚 도서 상품권 (1만원)', '🌳 나무 심기 기부 (1,000 P)') "
                    + "ORDER BY PRODUCT_NAME ASC";
+
         try {
             conn = getConnection();
             pstmt = conn.prepareStatement(sql);
@@ -53,9 +56,10 @@ public class ProductsDAO {
             while (rs.next()) {
                 ProductsDTO product = new ProductsDTO(
                     rs.getString("PRODUCT_ID"), 	
-                    rs.getString("PRODUCT_NAME"), 	
+                    rs.getString("PRODUCT_NAME"), 		
                     rs.getInt("REQUIRED_POINTS") 		
                 );
+
                 list.add(product);
             }
         } catch (SQLException e) {
@@ -64,6 +68,7 @@ public class ProductsDAO {
         } finally {
             close(conn, pstmt, rs);
         }
+
         return list; 
     }
 }

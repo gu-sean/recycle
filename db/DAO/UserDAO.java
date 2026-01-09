@@ -13,8 +13,11 @@ import db.RecycleDB;
 import db.DTO.UserDTO;
 import db.DTO.RankingDTO;
 
+
 public class UserDAO {
+    
     private static final String USERS_TABLE = "USERS";
+
 
     public static String getUsersCreateTableSql() {
         return "CREATE TABLE IF NOT EXISTS " + USERS_TABLE + " (" +
@@ -29,6 +32,7 @@ public class UserDAO {
                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
     }
     
+
     public static void initializeDatabase() {
         try (Connection conn = RecycleDB.connect();
              Statement stmt = conn.createStatement()) {
@@ -40,6 +44,7 @@ public class UserDAO {
             throw new RuntimeException("USERS 테이블 초기화 실패", e);
         }
     }
+
 
     public UserDTO loginUser(String id, String password) throws SQLException {
         String sql = "SELECT USER_ID, NICKNAME, BALANCE_POINTS, TOTAL_POINTS, ATTENDANCE_STREAK, IS_ADMIN FROM " + USERS_TABLE + 
@@ -67,6 +72,7 @@ public class UserDAO {
         return null; 
     }
 
+
     public boolean isIdDuplicate(String id) throws SQLException {
         String sql = "SELECT COUNT(*) FROM " + USERS_TABLE + " WHERE USER_ID = ?";
         
@@ -82,6 +88,7 @@ public class UserDAO {
         }
         return false;
     }
+
 
     public boolean isNicknameDuplicate(String nickname) throws SQLException {
         String sql = "SELECT COUNT(*) FROM " + USERS_TABLE + " WHERE NICKNAME = ?";
@@ -99,6 +106,7 @@ public class UserDAO {
         return false;
     }
 
+   
     public boolean registerUser(String id, String password, String nickname) throws SQLException {
         String sql = "INSERT INTO " + USERS_TABLE + " (USER_ID, PASSWORD, NICKNAME, BALANCE_POINTS, TOTAL_POINTS, ATTENDANCE_STREAK, IS_ADMIN) VALUES (?, ?, ?, 0, 0, 0, FALSE)";
         
@@ -147,6 +155,7 @@ public class UserDAO {
         return getUserById(userID);
     }
     
+
     public int getUserPoints(String userID) throws SQLException {
         String sql = "SELECT BALANCE_POINTS FROM " + USERS_TABLE + " WHERE USER_ID = ?";
         
@@ -162,7 +171,7 @@ public class UserDAO {
         }
         return 0; 
     }
- 
+
     public void addPointsToUser(String userID, int points) throws SQLException {
         String sql = "UPDATE " + USERS_TABLE + " SET BALANCE_POINTS = BALANCE_POINTS + ?, TOTAL_POINTS = TOTAL_POINTS + ? WHERE USER_ID = ?";
         
@@ -189,6 +198,8 @@ public class UserDAO {
         }
     }
 
+
+ 
     public void updateUserPoint(UserDTO user) throws SQLException {
         String sql = "UPDATE " + USERS_TABLE + " SET BALANCE_POINTS = ? WHERE USER_ID = ?";
         
@@ -206,6 +217,7 @@ public class UserDAO {
             throw e;
         }
     }
+
 
     public void updateQuizResult(UserDTO user) throws SQLException {
          String sql = "UPDATE " + USERS_TABLE + " SET TOTAL_POINTS = ?, BALANCE_POINTS = ?, ATTENDANCE_STREAK = ? WHERE USER_ID = ?";
@@ -229,6 +241,7 @@ public class UserDAO {
 
   
     public List<RankingDTO> getAllUserRankings() throws SQLException {
+ 
         String sql = "SELECT USER_ID, NICKNAME, BALANCE_POINTS FROM " + USERS_TABLE + 
                      " ORDER BY BALANCE_POINTS DESC, USER_ID ASC";
         
@@ -249,6 +262,7 @@ public class UserDAO {
         return rankingList;
     }
 
+ 
     public List<UserDTO> getTop5Rankings() throws SQLException {
         List<UserDTO> rankList = new ArrayList<>();
         
@@ -274,6 +288,7 @@ public class UserDAO {
         return rankList;
     }
     
+ 
     public void deleteUser(String userId) throws SQLException {
         String sql = "DELETE FROM " + USERS_TABLE + " WHERE USER_ID = ?";
 

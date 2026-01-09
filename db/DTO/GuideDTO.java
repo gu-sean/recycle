@@ -1,8 +1,10 @@
 package db.DTO;
 
+
 public class GuideDTO {
+    
     private final String category;   
-    private final String itemName; 
+    private final String itemName;  
     private final String content;    
 
     public GuideDTO(String category, String itemName, String content) {
@@ -23,6 +25,7 @@ public class GuideDTO {
         return content;
     }
 
+   
     @Override
     public String toString() {
         return "[" + category + "] " + itemName;

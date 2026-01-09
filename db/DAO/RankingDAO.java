@@ -10,10 +10,14 @@ import java.util.List;
 import db.RecycleDB;
 import db.DTO.RankingDTO; 
 
+
 public class RankingDAO {
+
+ 
     public List<RankingDTO> getTopRankings() throws SQLException {
         List<RankingDTO> rankings = new ArrayList<>();
         
+
         String sql = "SELECT USER_ID, NICKNAME, BALANCE_POINTS " + 
                      "FROM USERS " +
                      "ORDER BY BALANCE_POINTS DESC, USER_ID ASC"; 
@@ -35,6 +39,7 @@ public class RankingDAO {
             System.err.println("Error fetching rankings from DB: " + e.getMessage());
             throw e;
         }
+        
         return rankings;
     }
     

@@ -255,6 +255,7 @@ public class GuideDAO {
     public static void initializeDatabase() {
         try (Connection conn = RecycleDB.connect();
              Statement stmt = conn.createStatement()) {
+
             stmt.execute("SET FOREIGN_KEY_CHECKS = 0");
             stmt.execute("DROP TABLE IF EXISTS " + ITEMS_TABLE); 
             stmt.execute("DROP TABLE IF EXISTS " + CATEGORIES_TABLE); 
@@ -277,6 +278,7 @@ public class GuideDAO {
             stmt.execute(createCategoriesSQL);
             stmt.execute(createItemsSQL);
             insertInitialData(conn);
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -355,5 +357,6 @@ public class GuideDAO {
         }
         return null;
     }
+
     public static String getCssStyles() { return CSS_STYLES; }
 }
