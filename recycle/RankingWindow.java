@@ -10,7 +10,9 @@ import java.util.List;
 import recycle.RankingManager.RankingEntry;
 
 public class RankingWindow extends JPanel {
+
     private final String currentUserId;
+
     private recycle.RankingManager manager;
     private JPanel rankListPanel;
     private JLabel infoLabel;
@@ -25,15 +27,18 @@ public class RankingWindow extends JPanel {
         Color.WHITE,
         Color.WHITE
     };
+    
     private static final int MAX_RANK_DISPLAY = 5; 
 
     public RankingWindow(String userId) {
         this.currentUserId = (userId != null && !userId.isEmpty()) ? userId : "테스트ID";
+
         try {
             this.manager = new recycle.RankingManager();
         } catch (RuntimeException e) {
             System.err.println("랭킹 관리자 초기화 실패: " + e.getMessage());
         }
+
         setLayout(new BorderLayout(10, 10));
         setBorder(new EmptyBorder(20, 20, 20, 20));
 
@@ -59,6 +64,7 @@ public class RankingWindow extends JPanel {
 
         loadRankingList();
     }
+
     public void refreshRanking() {
         loadRankingList();
     }
@@ -71,16 +77,22 @@ public class RankingWindow extends JPanel {
         }
         try {
             List<RankingManager.RankingEntry> rankingList = manager.getSortedRankingList();
+
             List<RankingManager.RankingEntry> topRankingList = rankingList.subList(0, Math.min(rankingList.size(), MAX_RANK_DISPLAY));
+            
             updateRankListUI(topRankingList);
+
             updateMyRank(rankingList); 
+
         } catch (SQLException e) {
             System.err.println("랭킹 정보 로드 중 DB 오류: " + e.getMessage());
             infoLabel.setText("<html><p align='center'>[내 정보] 랭킹 로드 오류</p></html>");
         }
     }
+
     private void updateRankListUI(List<RankingEntry> rankingList) {
         rankListPanel.removeAll();
+
         if (rankingList.isEmpty()) {
             JLabel noRank = new JLabel("랭킹 정보가 없습니다.", SwingConstants.CENTER);
             noRank.setFont(LABEL_FONT);
@@ -89,7 +101,9 @@ public class RankingWindow extends JPanel {
             for (int i = 0; i < rankingList.size(); i++) {
                 RankingEntry entry = rankingList.get(i);
                 int rank = i + 1; 
+
                 rankListPanel.add(createRankItemPanel(rank, entry));
+
                 if (i < rankingList.size() - 1) { 
                     rankListPanel.add(new JSeparator(SwingConstants.HORIZONTAL));
                 }
@@ -98,9 +112,11 @@ public class RankingWindow extends JPanel {
         rankListPanel.revalidate();
         rankListPanel.repaint();
     }
+
     private JPanel createRankItemPanel(int rank, RankingEntry entry) {
         JPanel itemPanel = new JPanel(new BorderLayout(15, 5));
         itemPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
         Color bgColor = Color.WHITE;
         if (rank <= RANK_COLORS.length) { 
             bgColor = RANK_COLORS[rank - 1];
@@ -139,6 +155,7 @@ public class RankingWindow extends JPanel {
         }
         String myInfoHtml = manager.getMyRankInfo(currentUserId, rankingList);
         infoLabel.setText(myInfoHtml);
+
         try {
             int start = myInfoHtml.indexOf("현재 포인트: <strong>") + "현재 포인트: <strong>".length();
             int end = myInfoHtml.indexOf("점</strong>", start);

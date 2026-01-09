@@ -33,6 +33,7 @@ public class RankingManager {
 
     public RankingManager() {
         try {
+   
             this.rankingDAO = new RankingDAO(); 
             this.logDAO = new RecycleLogDAO(); 
             this.userDAO = new UserDAO(); 
@@ -42,9 +43,13 @@ public class RankingManager {
         }
     }
 
+ 
     public List<RankingEntry> getSortedRankingList() throws SQLException {
+        
         List<db.DTO.RankingDTO> dbRankingList = rankingDAO.getTopRankings();
+        
         List<RankingEntry> rankingList = new ArrayList<>();
+        
         for (db.DTO.RankingDTO dbDto : dbRankingList) {
              rankingList.add(new RankingEntry(
                  dbDto.getUserId(), 
@@ -55,6 +60,7 @@ public class RankingManager {
         return rankingList;
     }
     
+  
     public String getMyRankInfo(String userId, List<RankingEntry> rankingList) {
         int myRank = -1;
         int myPoints = 0;
@@ -62,6 +68,7 @@ public class RankingManager {
 
         for (int i = 0; i < rankingList.size(); i++) {
         	RankingEntry entry = rankingList.get(i);
+            
             if (entry.getUserId().equals(userId)) {
                 myRank = i + 1; 
                 myPoints = entry.getBalancePoints(); 
@@ -69,10 +76,13 @@ public class RankingManager {
                 break;
             }
         }
+        
         String rankStr = (myRank != -1) ? String.valueOf(myRank) : "정보 없음";
+
         if (myRank == -1) {
             try {
                 UserDTO userDto = userDAO.getUserById(userId); 
+                
                 if (userDto != null) {
                     myNickname = userDto.getNickname();
                     myPoints = userDto.getBalancePoints();
@@ -87,6 +97,7 @@ public class RankingManager {
                  rankStr = "오류";
             }
         }
+
         return String.format(
             "<html><p align='center'>[내 정보] 닉네임: <strong>%s</strong> (ID: %s) | 현재 포인트: <strong>%d점</strong> | 순위: <strong>%s위</strong></p></html>", 
             myNickname, userId, myPoints, rankStr);

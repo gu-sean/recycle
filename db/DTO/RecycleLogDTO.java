@@ -1,6 +1,7 @@
 package db.DTO;
 
 public class RecycleLogDTO {
+
     private final int logId;
     private final String logDate;
     private final String itemName;

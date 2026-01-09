@@ -6,6 +6,7 @@ public class ProductsDTO {
     private int requiredPoints;
 
     public ProductsDTO() { }
+
     public ProductsDTO(String productId, String productName, int requiredPoints) {
         this.productId = productId;
         this.productName = productName;

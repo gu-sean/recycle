@@ -14,16 +14,17 @@ public class PointLogDAO {
     private static final String POINT_LOGS_TABLE = "POINT_LOGS";
     public PointLogDAO() {
     }
-
     public void insertPointLog(Connection conn, String userId, String type, String detail, int points) throws SQLException {
         String sql = "INSERT INTO " + POINT_LOGS_TABLE + 
                      " (USER_ID, TIMESTAMP, TYPE, DETAIL, POINT) VALUES (?, ?, ?, ?, ?)";
+        
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, userId);
             pstmt.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
             pstmt.setString(3, type);
             pstmt.setString(4, detail); 
-            pstmt.setInt(5, points); 
+            pstmt.setInt(5, points);
+            
             pstmt.executeUpdate();
         }
     }
@@ -39,8 +40,10 @@ public class PointLogDAO {
 
     public List<PointLogDTO> getPointLogsByUserId(Connection conn, String userId) throws SQLException {
         List<PointLogDTO> list = new ArrayList<>();
+
         String sql = "SELECT LOG_ID, USER_ID, TYPE, DETAIL, POINT, TIMESTAMP FROM " + POINT_LOGS_TABLE + 
                      " WHERE USER_ID = ? ORDER BY TIMESTAMP DESC";
+
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, userId);
             try (ResultSet rs = pstmt.executeQuery()) {
@@ -59,7 +62,7 @@ public class PointLogDAO {
         }
         return list;
     }
-
+    
     public static void initializeDatabase() {
         String createTableSQL = "CREATE TABLE IF NOT EXISTS " + POINT_LOGS_TABLE + " ("
                 + "`LOG_ID` INT NOT NULL AUTO_INCREMENT,"

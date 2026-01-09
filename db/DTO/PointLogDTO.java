@@ -6,7 +6,7 @@ import java.time.format.DateTimeFormatter;
 public class PointLogDTO {
     private final int logId;
     private final String userId;
-    private final String type;   
+    private final String type;    
     private final String detail;
     private final int amount;     
     private final LocalDateTime timestamp; 
@@ -36,7 +36,7 @@ public class PointLogDTO {
         if (amount > 0) {
             return "+" + amount + " P";
         }
-        return amount + " P";
+        return amount + " P"; 
     }
 
     public String getTypeKorean() {

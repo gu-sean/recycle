@@ -19,17 +19,20 @@ import db.DTO.PointLogDTO;
 public class ProductWindow extends JPanel { 
     private List<ProductsDTO> productsData; 
     private UserDTO currentUser; 
+
     private JLabel nameLabel;
     private JLabel pointsLabel;
     private JTextArea guideArea;
     private JButton purchaseButton;
     private JButton historyButton; 
     private ProductsDTO selectedProduct;
-    private static final Color LIGHT_BLUE = new Color(204, 229, 255); 
 
+    private static final Color LIGHT_BLUE = new Color(204, 229, 255); 
+    
     private Connection getConnection() throws SQLException {
-        return DriverManager.getConnection("jdbc:mysql://localhost:3306/recycle?serverTimezone=UTC&characterEncoding=UTF-8", "root", "fjf0301!");
+        return DriverManager.getConnection("", "", "!");
     }
+
     public ProductWindow(UserDTO user) {
         this.currentUser = user;
         setLayout(new BorderLayout());
@@ -53,6 +56,7 @@ public class ProductWindow extends JPanel {
                 productListPanel.add(productBtn);
             }
         }
+
         JScrollPane scrollPane = new JScrollPane(productListPanel);
         scrollPane.setPreferredSize(new Dimension(220, 0));
         leftPanel.add(scrollPane, BorderLayout.CENTER);
@@ -94,57 +98,70 @@ public class ProductWindow extends JPanel {
 
         add(purchasePanel, BorderLayout.CENTER);
     }
+
     private void showPointHistory() {
         if (currentUser == null) return;
+
         String[] columns = {"일시", "구분", "상세 내용", "포인트"};
         DefaultTableModel model = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { return false; } 
         };
+
         try (Connection conn = getConnection()) {
             PointLogDAO logDAO = new PointLogDAO();
             List<PointLogDTO> logs = logDAO.getPointLogsByUserId(conn, currentUser.getUserId());
             for (PointLogDTO log : logs) {
                 Object[] row = {
                     log.getFormattedTimestamp(), 
-                    log.getTypeKorean(),      
+                    log.getTypeKorean(),       
                     log.getDetail(),
-                    log.getFormattedAmount()   
+                    log.getFormattedAmount()  
                 };
                 model.addRow(row);
             }
+
             JTable table = new JTable(model);
             table.setRowHeight(25);
             JOptionPane.showMessageDialog(this, new JScrollPane(table), 
                 currentUser.getUserId() + "님의 활동 내역", JOptionPane.INFORMATION_MESSAGE);
+
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(this, "내역 로드 실패: " + e.getMessage());
         }
     }
+
     private void updatepurchasePanel(ProductsDTO product) {
         this.selectedProduct = product;
         nameLabel.setText(product.getProductName());
         pointsLabel.setText("필요 포인트: " + product.getRequiredPoints() + " P");
+
         StringBuilder sb = new StringBuilder();
         sb.append(" [ ").append(product.getProductName()).append(" ]\n\n");
         sb.append(" - 환경을 생각하는 친환경 교환 상품입니다.\n");
         sb.append(" - 결제 시 보유 포인트에서 즉시 차감됩니다.\n\n");
         sb.append(" --------------------------------------------\n");
         sb.append(" 현재 나의 보유 포인트: ").append(currentUser.getBalancePoints()).append(" P");
+
         guideArea.setText(sb.toString());
         purchaseButton.setEnabled(true);
     }
+
     private void handlePurchase() {
         if (currentUser == null || selectedProduct == null) return;
+
         int userPoint = currentUser.getBalancePoints(); 
         int price = selectedProduct.getRequiredPoints(); 
+
         if (userPoint < price) {
             JOptionPane.showMessageDialog(this, "포인트가 부족하여 구매할 수 없습니다.", "잔액 부족", JOptionPane.WARNING_MESSAGE);
             return;
         }
+
         int confirm = JOptionPane.showConfirmDialog(this, 
             selectedProduct.getProductName() + "을(를) 구매하시겠습니까?\n차감 포인트: " + price + " P", 
             "구매 확인", JOptionPane.YES_NO_OPTION);
+
         if (confirm == JOptionPane.YES_OPTION) {
             try (Connection conn = getConnection()) {
                 conn.setAutoCommit(false); 
@@ -157,7 +174,7 @@ public class ProductWindow extends JPanel {
                     logDAO.insertSpendLog(conn, currentUser.getUserId(), selectedProduct.getProductName(), price);
 
                     conn.commit(); 
-                
+                    
                     JOptionPane.showMessageDialog(this, "구매 완료! 남은 포인트: " + currentUser.getBalancePoints() + " P");
                     updatepurchasePanel(selectedProduct); 
 
@@ -167,7 +184,7 @@ public class ProductWindow extends JPanel {
                 }
             } catch (SQLException e) {
                 JOptionPane.showMessageDialog(this, "처리 중 오류 발생: " + e.getMessage());
-                currentUser.setBalancePoints(userPoint); // 실패 시 DTO 복구
+                currentUser.setBalancePoints(userPoint); 
             }
         }
     }

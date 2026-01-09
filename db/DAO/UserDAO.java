@@ -32,7 +32,9 @@ public class UserDAO {
     public static void initializeDatabase() {
         try (Connection conn = RecycleDB.connect();
              Statement stmt = conn.createStatement()) {
-            stmt.execute(getUsersCreateTableSql());  
+            
+            stmt.execute(getUsersCreateTableSql());
+            
         } catch (SQLException e) {
             System.err.println("USERS 테이블 초기화 오류: " + e.getMessage());
             throw new RuntimeException("USERS 테이블 초기화 실패", e);
@@ -42,10 +44,13 @@ public class UserDAO {
     public UserDTO loginUser(String id, String password) throws SQLException {
         String sql = "SELECT USER_ID, NICKNAME, BALANCE_POINTS, TOTAL_POINTS, ATTENDANCE_STREAK, IS_ADMIN FROM " + USERS_TABLE + 
                      " WHERE USER_ID = ? AND PASSWORD = ?";
+        
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
             pstmt.setString(1, id);
             pstmt.setString(2, password);
+            
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
                     return new UserDTO(
@@ -64,8 +69,10 @@ public class UserDAO {
 
     public boolean isIdDuplicate(String id) throws SQLException {
         String sql = "SELECT COUNT(*) FROM " + USERS_TABLE + " WHERE USER_ID = ?";
+        
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
             pstmt.setString(1, id);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
@@ -78,8 +85,10 @@ public class UserDAO {
 
     public boolean isNicknameDuplicate(String nickname) throws SQLException {
         String sql = "SELECT COUNT(*) FROM " + USERS_TABLE + " WHERE NICKNAME = ?";
+        
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
             pstmt.setString(1, nickname);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
@@ -92,13 +101,17 @@ public class UserDAO {
 
     public boolean registerUser(String id, String password, String nickname) throws SQLException {
         String sql = "INSERT INTO " + USERS_TABLE + " (USER_ID, PASSWORD, NICKNAME, BALANCE_POINTS, TOTAL_POINTS, ATTENDANCE_STREAK, IS_ADMIN) VALUES (?, ?, ?, 0, 0, 0, FALSE)";
+        
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
             pstmt.setString(1, id);
             pstmt.setString(2, password);
             pstmt.setString(3, nickname);
+            
             int affectedRows = pstmt.executeUpdate();
             return affectedRows > 0;
+            
         } catch (SQLException e) {
             if (e.getErrorCode() == 1062) { 
                 System.err.println("회원가입 실패: 아이디 또는 닉네임 중복");
@@ -106,11 +119,13 @@ public class UserDAO {
             throw e; 
         }
     }
-
+    
     public UserDTO getUserById(String userID) throws SQLException {
         String sql = "SELECT USER_ID, NICKNAME, BALANCE_POINTS, TOTAL_POINTS, ATTENDANCE_STREAK, IS_ADMIN FROM " + USERS_TABLE + " WHERE USER_ID = ?";
+        
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
             pstmt.setString(1, userID);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
@@ -134,8 +149,10 @@ public class UserDAO {
     
     public int getUserPoints(String userID) throws SQLException {
         String sql = "SELECT BALANCE_POINTS FROM " + USERS_TABLE + " WHERE USER_ID = ?";
+        
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
             pstmt.setString(1, userID);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
@@ -145,36 +162,45 @@ public class UserDAO {
         }
         return 0; 
     }
-
+ 
     public void addPointsToUser(String userID, int points) throws SQLException {
         String sql = "UPDATE " + USERS_TABLE + " SET BALANCE_POINTS = BALANCE_POINTS + ?, TOTAL_POINTS = TOTAL_POINTS + ? WHERE USER_ID = ?";
+        
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
             pstmt.setInt(1, points);
             pstmt.setInt(2, points);
             pstmt.setString(3, userID);
+            
             pstmt.executeUpdate();
         }
     }
     
     public void addPointsToUser(Connection conn, String userId, int points) throws SQLException {
         String sql = "UPDATE " + USERS_TABLE + " SET BALANCE_POINTS = BALANCE_POINTS + ?, TOTAL_POINTS = TOTAL_POINTS + ? WHERE USER_ID = ?";
+        
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, points);
             pstmt.setInt(2, points);
             pstmt.setString(3, userId);
+            
             pstmt.executeUpdate();
         }
     }
 
     public void updateUserPoint(UserDTO user) throws SQLException {
         String sql = "UPDATE " + USERS_TABLE + " SET BALANCE_POINTS = ? WHERE USER_ID = ?";
+        
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
             pstmt.setInt(1, user.getBalancePoints());
             pstmt.setString(2, user.getUserId());
+            
             pstmt.executeUpdate();
             System.out.println("✅ 사용자 포인트(잔액) 업데이트 완료: " + user.getUserId());
+
         } catch (SQLException e) {
             System.err.println("❌ 사용자 포인트 업데이트 실패: " + e.getMessage());
             throw e;
@@ -183,27 +209,35 @@ public class UserDAO {
 
     public void updateQuizResult(UserDTO user) throws SQLException {
          String sql = "UPDATE " + USERS_TABLE + " SET TOTAL_POINTS = ?, BALANCE_POINTS = ?, ATTENDANCE_STREAK = ? WHERE USER_ID = ?";
+         
          try (Connection conn = RecycleDB.connect();
               PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             
              pstmt.setInt(1, user.getTotalPoints());
              pstmt.setInt(2, user.getBalancePoints());
              pstmt.setInt(3, user.getAttendanceStreak());
              pstmt.setString(4, user.getUserId());
+             
              pstmt.executeUpdate();
              System.out.println("✅ 퀴즈 결과 및 출석 정보 저장 완료: " + user.getUserId());
+
          } catch (SQLException e) {
              System.err.println("❌ 퀴즈 결과 저장 실패: " + e.getMessage());
              throw e;
          }
     }
 
+  
     public List<RankingDTO> getAllUserRankings() throws SQLException {
         String sql = "SELECT USER_ID, NICKNAME, BALANCE_POINTS FROM " + USERS_TABLE + 
                      " ORDER BY BALANCE_POINTS DESC, USER_ID ASC";
+        
         List<RankingDTO> rankingList = new ArrayList<>();
+        
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
+            
             while (rs.next()) {
                 rankingList.add(new RankingDTO(
                     rs.getString("USER_ID"),
@@ -217,12 +251,16 @@ public class UserDAO {
 
     public List<UserDTO> getTop5Rankings() throws SQLException {
         List<UserDTO> rankList = new ArrayList<>();
+        
         String sql = "SELECT USER_ID, NICKNAME, TOTAL_POINTS, BALANCE_POINTS, ATTENDANCE_STREAK, IS_ADMIN FROM " + USERS_TABLE + 
                      " ORDER BY TOTAL_POINTS DESC LIMIT 5";
+
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
+            
             while (rs.next()) {
+
                 rankList.add(new UserDTO(
                     rs.getString("USER_ID"),
                     rs.getString("NICKNAME"),
@@ -238,11 +276,15 @@ public class UserDAO {
     
     public void deleteUser(String userId) throws SQLException {
         String sql = "DELETE FROM " + USERS_TABLE + " WHERE USER_ID = ?";
+
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
             pstmt.setString(1, userId);
+
             int result = pstmt.executeUpdate();
             if (result > 0) System.out.println("✅ 회원 탈퇴 완료: " + userId);
+
         } catch (SQLException e) {
             System.err.println("❌ 회원 탈퇴 실패: " + e.getMessage());
             throw e;

@@ -1,6 +1,7 @@
 package db.DTO;
 
 public class RankingDTO {
+    
     private final String userId;
     private final String nickname;
     private final int balancePoints; 

@@ -37,9 +37,11 @@ public class ProductsDAO {
 
     public List<ProductsDTO> getAllProducts() {
         List<ProductsDTO> list = new ArrayList<>();
+
         Connection conn = null;
         PreparedStatement pstmt = null;
         ResultSet rs = null;
+
         String sql = "SELECT PRODUCT_ID, PRODUCT_NAME, REQUIRED_POINTS FROM PRODUCTS "
                    + "WHERE PRODUCT_NAME NOT IN ('☕ 재활용 커피 쿠폰', '🌱 친환경 에코백', '📚 도서 상품권 (1만원)', '🌳 나무 심기 기부 (1,000 P)') "
                    + "ORDER BY PRODUCT_NAME ASC";
@@ -47,10 +49,11 @@ public class ProductsDAO {
             conn = getConnection();
             pstmt = conn.prepareStatement(sql);
             rs = pstmt.executeQuery();
+
             while (rs.next()) {
                 ProductsDTO product = new ProductsDTO(
-                    rs.getString("PRODUCT_ID"), 		
-                    rs.getString("PRODUCT_NAME"), 		
+                    rs.getString("PRODUCT_ID"), 	
+                    rs.getString("PRODUCT_NAME"), 	
                     rs.getInt("REQUIRED_POINTS") 		
                 );
                 list.add(product);
