@@ -22,7 +22,7 @@ public class RecyclePanel extends JPanel {
     private final Map<String, Integer> itemPoints; 
     
     private final Runnable rankUpdateCallback; 
- 
+
     private JComboBox<String> itemComboBox;
     private JLabel pointLabel; 
     private JButton addButton;
@@ -31,12 +31,12 @@ public class RecyclePanel extends JPanel {
     private DefaultTableModel tableModel;
     private JButton saveButton;
     private JButton removeButton;
-    private JButton uploadButton;
+    private JButton uploadButton; 
     
     private int totalPoint = 0; 
 
     private final List<String> loadedItems = new ArrayList<>(); 
-
+  
     private final List<String> unsavedItems = new ArrayList<>(); 
     
     private static final Color BUTTON_BACKGROUND = new Color(220, 240, 255); 
@@ -233,7 +233,7 @@ public class RecyclePanel extends JPanel {
         imageLabel.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
         
         String suggested = (String) itemComboBox.getSelectedItem();
-        if (suggested.equals(DEFAULT_SELECTION_TEXT)) suggested = "플라스틱";
+        if (suggested.equals(DEFAULT_SELECTION_TEXT)) suggested = "플라스틱"; 
 
         JPanel infoPanel = new JPanel(new GridLayout(2, 1, 5, 5));
         JLabel msgLabel = new JLabel("<html><center>사진 분석 완료!<br>분석된 카테고리: <b>[" + suggested + "]</b></center></html>", SwingConstants.CENTER);

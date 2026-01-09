@@ -3,6 +3,8 @@ package recycle;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,11 +62,29 @@ public class RankingWindow extends JPanel {
         ));
         infoLabel.setBackground(new Color(240, 248, 255));
         infoLabel.setOpaque(true);
+        infoLabel.setCursor(new Cursor(Cursor.HAND_CURSOR)); 
+        infoLabel.setToolTipText("클릭하면 마이페이지가 열립니다.");
+        
+        infoLabel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                openMyPage();
+            }
+        });
+        
         add(infoLabel, BorderLayout.SOUTH);
 
         loadRankingList();
     }
 
+  
+    private void openMyPage() {
+        Window parentWindow = SwingUtilities.getWindowAncestor(this);
+        if (parentWindow instanceof Frame) {
+            MyPageWindow myPage = new MyPageWindow((Frame) parentWindow, currentUserId);
+            myPage.setVisible(true);
+        }
+    }
 
     public void refreshRanking() {
         loadRankingList();
@@ -78,14 +98,10 @@ public class RankingWindow extends JPanel {
         }
 
         try {
-
             List<RankingManager.RankingEntry> rankingList = manager.getSortedRankingList();
-            
             List<RankingManager.RankingEntry> topRankingList = rankingList.subList(0, Math.min(rankingList.size(), MAX_RANK_DISPLAY));
             
             updateRankListUI(topRankingList);
-
-  
             updateMyRank(rankingList); 
 
         } catch (SQLException e) {
@@ -93,7 +109,6 @@ public class RankingWindow extends JPanel {
             infoLabel.setText("<html><p align='center'>[내 정보] 랭킹 로드 오류</p></html>");
         }
     }
-
 
     private void updateRankListUI(List<RankingEntry> rankingList) {
         rankListPanel.removeAll();
@@ -103,31 +118,24 @@ public class RankingWindow extends JPanel {
             noRank.setFont(LABEL_FONT);
             rankListPanel.add(noRank);
         } else {
-     
             for (int i = 0; i < rankingList.size(); i++) {
                 RankingEntry entry = rankingList.get(i);
-                int rank = i + 1; 
-
+                int rank = i + 1;
                 rankListPanel.add(createRankItemPanel(rank, entry));
-
-            
                 if (i < rankingList.size() - 1) { 
                     rankListPanel.add(new JSeparator(SwingConstants.HORIZONTAL));
                 }
             }
         }
-
         rankListPanel.revalidate();
         rankListPanel.repaint();
     }
-
 
     private JPanel createRankItemPanel(int rank, RankingEntry entry) {
         JPanel itemPanel = new JPanel(new BorderLayout(15, 5));
         itemPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         Color bgColor = Color.WHITE;
-    
         if (rank <= RANK_COLORS.length) { 
             bgColor = RANK_COLORS[rank - 1];
         }
@@ -154,10 +162,8 @@ public class RankingWindow extends JPanel {
                 BorderFactory.createEmptyBorder(8, 8, 8, 8)
             ));
         }
-
         return itemPanel;
     }
-
 
     public void updateMyRank(List<RankingEntry> rankingList) {
         if (manager == null) {
@@ -168,7 +174,6 @@ public class RankingWindow extends JPanel {
 
         String myInfoHtml = manager.getMyRankInfo(currentUserId, rankingList);
         infoLabel.setText(myInfoHtml);
-
 
         try {
             int start = myInfoHtml.indexOf("현재 포인트: <strong>") + "현재 포인트: <strong>".length();

@@ -12,8 +12,10 @@ import recycle.LoginPanel;
 import recycle.RecyclePanel;
 import recycle.Guide;
 import recycle.QuizPanel;
-import recycle.RankingWindow;
+import recycle.RankingWindow; 
 import recycle.ProductWindow; 
+import recycle.AdminWindow;   
+
 
 public class MainApp extends JFrame {
 
@@ -22,11 +24,7 @@ public class MainApp extends JFrame {
     public MainApp(UserDTO user) { 
         this.currentUser = user; 
         
-        setTitle("분리수거 포인트 서비스 - [사용자: " + user.getNickname() + " (" + user.getUserId() + ")]");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1000, 700); 
-        setMinimumSize(new Dimension(800, 600));
-        setLocationRelativeTo(null);
+        setupFrame();
         
         JTabbedPane tabbedPane = createTabbedPane();
         add(tabbedPane, BorderLayout.CENTER);
@@ -34,68 +32,100 @@ public class MainApp extends JFrame {
         setVisible(true); 
     }
     
+ 
+    private void setupFrame() {
+        String title = "EcoCycle - " + currentUser.getNickname();
+        if (currentUser.isAdmin()) {
+            title += " [관리자 모드]";
+        }
+        setTitle(title);
+        
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(1100, 800); 
+        setMinimumSize(new Dimension(900, 700));
+        setLocationRelativeTo(null); 
+    }
+    
+  
     private JTabbedPane createTabbedPane() {
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.setFont(new Font("맑은 고딕", Font.BOLD, 14));
 
         try {
-   
+          
             RankingWindow rankingPanel = new RankingWindow(currentUser.getUserId()); 
             
-            Runnable rankUpdateCallback = () -> {
-                System.out.println("랭킹 업데이트 콜백 실행...");
+            ProductWindow productPanel = new ProductWindow(currentUser);
+
+         
+            Runnable refreshCallback = () -> {
+                System.out.println("[시스템] 데이터 새로고침 요청됨.");
                 rankingPanel.refreshRanking();
+                productPanel.loadProducts();  
             };
             
-            RecyclePanel recyclePanel = new RecyclePanel(currentUser.getUserId(), rankUpdateCallback); 
-            tabbedPane.addTab("분리수거 및 기록", new JScrollPane(recyclePanel));
+           
+            tabbedPane.addTab("분리수거 및 기록", new JScrollPane(new RecyclePanel(currentUser.getUserId(), refreshCallback)));
             
-            Guide guidePanel = new Guide();
-            tabbedPane.addTab("분리수거 가이드", guidePanel);
+            tabbedPane.addTab("분리수거 가이드", new Guide());
             
-            QuizPanel quizPanel = new QuizPanel(currentUser, rankUpdateCallback); 
-            tabbedPane.addTab("분리수거 퀴즈", quizPanel);
+            tabbedPane.addTab("분리수거 퀴즈", new QuizPanel(currentUser, refreshCallback));
             
-            ProductWindow productPanel = new ProductWindow(currentUser);
-            tabbedPane.addTab("상품 구매/교환", new JScrollPane(productPanel));
+            tabbedPane.addTab("상품 구매/교환", productPanel);
             
             tabbedPane.addTab("포인트 랭킹", rankingPanel);
 
+            if (currentUser.isAdmin()) {
+            
+                tabbedPane.addTab("⚙️ 시스템 관리", new AdminWindow(refreshCallback));
+                
+                int adminTabIndex = tabbedPane.getTabCount() - 1;
+                tabbedPane.setForegroundAt(adminTabIndex, new Color(220, 20, 60)); 
+            }
+
         } catch (Exception e) {
-             System.err.println("메인 프레임 패널 초기화 오류: " + e.getMessage());
-             e.printStackTrace(); 
-             JOptionPane.showMessageDialog(this, 
-                 "애플리케이션 초기화 중 오류가 발생했습니다: " + e.getMessage(), 
-                 "오류", JOptionPane.ERROR_MESSAGE);
-             System.exit(1); 
+             handleInitializationError(e);
         }
         
         return tabbedPane;
     }
 
+    private void handleInitializationError(Exception e) {
+        System.err.println("메인 프레임 초기화 중 치명적 오류: " + e.getMessage());
+        e.printStackTrace();
+        JOptionPane.showMessageDialog(this, 
+            "화면을 구성하는 중 오류가 발생했습니다.\n" + e.getMessage(), 
+            "초기화 오류", JOptionPane.ERROR_MESSAGE);
+        System.exit(1);
+    }
+
+  
     public static void main(String[] args) {
-     
+   
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); 
         } catch (Exception e) {
-            System.err.println("Look and Feel 설정 실패: " + e.getMessage());
+            System.err.println("OS 테마 적용 실패: " + e.getMessage());
         }
 
-        try {
-            UserDAO.initializeDatabase();     
-            RecycleLogDAO.initializeDatabase(); 
-            GuideDAO.initializeDatabase();      
-            System.out.println("DB 테이블 및 초기 데이터 설정 완료.");
-        } catch (Exception e) { 
-            System.err.println("심각한 DB 초기화 오류 발생: " + e.getMessage());
-            JOptionPane.showMessageDialog(null, 
-                "프로그램 시작 전 DB 초기화에 실패했습니다. 프로그램을 종료합니다.\n" + e.getMessage(), 
-                "심각한 오류", JOptionPane.ERROR_MESSAGE);
-            System.exit(1);
-        }
+        initializeBackend();
         
         SwingUtilities.invokeLater(() -> {
             new LoginPanel(); 
         });
+    }
+
+    private static void initializeBackend() {
+        try {
+            UserDAO.initializeDatabase();     
+            RecycleLogDAO.initializeDatabase(); 
+            GuideDAO.initializeDatabase();      
+            System.out.println(">>> 데이터베이스 인프라 준비 완료.");
+        } catch (Exception e) { 
+            JOptionPane.showMessageDialog(null, 
+                "데이터베이스 연결에 실패했습니다.\n" + e.getMessage(), 
+                "DB 접속 오류", JOptionPane.ERROR_MESSAGE);
+            System.exit(1);
+        }
     }
 }

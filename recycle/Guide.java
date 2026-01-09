@@ -18,7 +18,7 @@ public class Guide extends JPanel {
 
     private static final Map<String, Map<String, String>> INITIAL_GUIDE_DATA = new LinkedHashMap<>();
     static {
- 
+      
         Map<String, String> paperItems = new LinkedHashMap<>();
         paperItems.put("기본 배출 원칙", "<h3>종이류 배출 방법</h3><ul><li>물기에 젖지 않도록 보관하여 배출합니다.</li><li>비닐 코팅, 스프링, 테이프, 철핀 등 다른 재질은 모두 제거해야 합니다.</li><li>반듯하게 펴서 종이류끼리 묶어 배출합니다.</li></ul>");
         paperItems.put("예외 (오염/비재활용)", "<h3>주의 사항</h3><ul><li class=\"note\">* 기름 등 이물질에 심하게 오염된 종이(박스)는 종량제 봉투로 배출합니다.</li></ul>"); 
@@ -91,7 +91,7 @@ public class Guide extends JPanel {
         
         add(mainSplit, BorderLayout.CENTER);
 
-       
+      
         categoryList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 String selectedCategory = categoryList.getSelectedValue();
@@ -151,7 +151,7 @@ public class Guide extends JPanel {
             }
 
             if (foundItem != null) {
-            
+           
                 categoryList.setSelectedValue(foundItem.categoryName, true);
                 
                 loadItems(categoryMap.get(foundItem.categoryName), foundItem.categoryName);

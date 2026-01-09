@@ -1,49 +1,75 @@
 package db.DTO;
 
-public class ProductsDTO {
-    private String productId;
-    private String productName;
-    private int requiredPoints;
+import java.util.Objects;
 
- 
+
+public class ProductsDTO {
+    private String productId;     
+    private String productName;  
+    private int requiredPoints; 
+    private int stock;            
+    private String imagePath;     
+    private String description;    
+
     public ProductsDTO() { }
 
+   
+    public ProductsDTO(String productName, int requiredPoints, int stock, String imagePath, String description) {
+        this.productName = productName;
+        this.requiredPoints = requiredPoints;
+        this.stock = stock;
+        this.imagePath = imagePath;
+        this.description = description;
+    }
 
-    public ProductsDTO(String productId, String productName, int requiredPoints) {
+   
+    public ProductsDTO(String productId, String productName, int requiredPoints, 
+                       int stock, String imagePath, String description) {
         this.productId = productId;
         this.productName = productName;
         this.requiredPoints = requiredPoints;
+        this.stock = stock;
+        this.imagePath = imagePath;
+        this.description = description;
     }
 
+ 
+    public String getProductId() { return productId; }
+    public void setProductId(String productId) { this.productId = productId; }
 
+    public String getProductName() { return productName; }
+    public void setProductName(String productName) { this.productName = productName; }
 
-    public String getProductId() {
-        return productId;
-    }
+    public int getRequiredPoints() { return requiredPoints; }
+    public void setRequiredPoints(int requiredPoints) { this.requiredPoints = requiredPoints; }
 
-    public void setProductId(String productId) {
-        this.productId = productId;
-    }
+    public int getStock() { return stock; }
+    public void setStock(int stock) { this.stock = stock; }
 
-    public String getProductName() {
-        return productName;
-    }
+    public String getImagePath() { return imagePath; }
+    public void setImagePath(String imagePath) { this.imagePath = imagePath; }
 
-    public void setProductName(String productName) {
-        this.productName = productName;
-    }
-
-    public int getRequiredPoints() {
-        return requiredPoints;
-    }
-
-    public void setRequiredPoints(int requiredPoints) {
-        this.requiredPoints = requiredPoints;
-    }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 
 
     @Override
     public String toString() {
-        return "ProductsDTO [상품번호=" + productId + ", 상품명=" + productName + ", 필요포인트=" + requiredPoints + "]";
+        return String.format("ProductsDTO [ID=%s, 이름=%s, 포인트=%d, 재고=%d, 설명=%s]", 
+                productId, productName, requiredPoints, stock, description);
+    }
+
+   
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ProductsDTO that = (ProductsDTO) o;
+        return Objects.equals(productId, that.productId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(productId);
     }
 }

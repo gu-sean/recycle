@@ -8,7 +8,8 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
-import db.DTO.PointLogDTO; 
+import db.DTO.PointLogDTO;
+import db.RecycleDB;
 
 public class PointLogDAO {
     
@@ -35,17 +36,18 @@ public class PointLogDAO {
 
    
     public void insertSpendLog(Connection conn, String userId, String productName, int points) throws SQLException {
+ 
         int spendPoints = (points > 0) ? -points : points;
         insertPointLog(conn, userId, "SPEND", "상품 구매: " + productName, spendPoints);
     }
 
-  
+    
     public void insertEarnLog(Connection conn, String userId, String activity, int points) throws SQLException {
         insertPointLog(conn, userId, "EARN", activity, points);
     }
 
- 
-    public List<PointLogDTO> getPointLogsByUserId(Connection conn, String userId) throws SQLException {
+   
+    public List<PointLogDTO> getPointLogs(Connection conn, String userId) throws SQLException {
         List<PointLogDTO> list = new ArrayList<>();
         
         String sql = "SELECT LOG_ID, USER_ID, TYPE, DETAIL, POINT, TIMESTAMP FROM " + POINT_LOGS_TABLE + 
@@ -55,7 +57,6 @@ public class PointLogDAO {
             pstmt.setString(1, userId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-
                     PointLogDTO log = new PointLogDTO(
                         rs.getInt("LOG_ID"),
                         rs.getString("USER_ID"),
@@ -71,7 +72,7 @@ public class PointLogDAO {
         return list;
     }
     
-  
+   
     public static void initializeDatabase() {
         String createTableSQL = "CREATE TABLE IF NOT EXISTS " + POINT_LOGS_TABLE + " ("
                 + "`LOG_ID` INT NOT NULL AUTO_INCREMENT,"
@@ -83,5 +84,12 @@ public class PointLogDAO {
                 + "PRIMARY KEY (`LOG_ID`),"
                 + "KEY `USER_ID_idx` (`USER_ID`)"
                 + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        
+        try (Connection conn = RecycleDB.connect();
+             PreparedStatement pstmt = conn.prepareStatement(createTableSQL)) {
+            pstmt.execute();
+        } catch (SQLException e) {
+            System.err.println("테이블 초기화 중 오류: " + e.getMessage());
+        }
     }
 }
