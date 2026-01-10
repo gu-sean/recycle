@@ -1,10 +1,12 @@
 package recycle;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
+import javax.swing.plaf.basic.BasicScrollBarUI;
 import java.awt.*;
 import java.sql.Connection;
 import java.util.List;
-import java.io.File;
 
 import db.RecycleDB;
 import db.DAO.ProductsDAO;
@@ -17,192 +19,235 @@ public class ProductWindow extends JPanel {
 
     private List<ProductsDTO> productsData; 
     private UserDTO currentUser; 
+    private final Runnable rankUpdateCallback; 
 
     private JPanel productListPanel;
     private JLabel nameLabel;
     private JLabel pointsLabel;
-    private JLabel stockLabel;   
-    private JLabel imageLabel;     
+    private JLabel stockLabel;      
+    private JLabel imageLabel;      
     private JTextArea guideArea;
     private JButton purchaseButton;
     private ProductsDTO selectedProduct;
 
-    private static final Color LIGHT_BLUE = new Color(204, 229, 255); 
+    private static final Color BG_DARK = new Color(15, 12, 30);
+    private static final Color POINT_PURPLE = new Color(130, 90, 255);
+    private static final Color POINT_CYAN = new Color(0, 255, 240);
+    private static final Color CARD_BG = new Color(25, 25, 50);
 
-    public ProductWindow(UserDTO user) {
+    public ProductWindow(UserDTO user, Runnable rankUpdateCallback) {
         this.currentUser = user;
-        setLayout(new BorderLayout());
+        this.rankUpdateCallback = rankUpdateCallback;
 
-        JPanel leftPanel = new JPanel(new BorderLayout());
-        productListPanel = new JPanel(new GridLayout(0, 1, 5, 5));
-        
-        loadProducts(); 
+        setLayout(new BorderLayout());
+        setBackground(BG_DARK);
+
+        JLabel titleLabel = new JLabel("Eco-Shop: 포인트 상점", SwingConstants.CENTER);
+        titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 28));
+        titleLabel.setForeground(POINT_CYAN);
+        titleLabel.setBorder(new EmptyBorder(20, 0, 20, 0));
+        add(titleLabel, BorderLayout.NORTH);
+
+        productListPanel = new JPanel(new GridLayout(0, 2, 15, 15));
+        productListPanel.setBackground(BG_DARK);
+        productListPanel.setBorder(new EmptyBorder(10, 20, 10, 20));
 
         JScrollPane scrollPane = new JScrollPane(productListPanel);
-        scrollPane.setPreferredSize(new Dimension(280, 0));
-        leftPanel.add(scrollPane, BorderLayout.CENTER);
-        add(leftPanel, BorderLayout.WEST);
+        scrollPane.setBorder(null);
+        scrollPane.getVerticalScrollBar().setUI(new CustomScrollBarUI());
+        add(scrollPane, BorderLayout.CENTER);
 
-        JPanel purchasePanel = new JPanel(new BorderLayout());
-        
-        JPanel topInfoPanel = new JPanel(new GridLayout(3, 1));
-        topInfoPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        
-        nameLabel = new JLabel("상품을 선택해주세요", JLabel.CENTER);
-        nameLabel.setFont(new Font("맑은 고딕", Font.BOLD, 24));
-        
-        pointsLabel = new JLabel("", JLabel.CENTER);
-        pointsLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 18));
-        pointsLabel.setForeground(new Color(0, 102, 204));
-        
-        stockLabel = new JLabel("", JLabel.CENTER);
-        stockLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
-        
-        topInfoPanel.add(nameLabel);
-        topInfoPanel.add(pointsLabel);
-        topInfoPanel.add(stockLabel);
-        
-        JPanel centerPanel = new JPanel(new BorderLayout());
-        
-        imageLabel = new JLabel("이미지 없음", JLabel.CENTER);
-        imageLabel.setPreferredSize(new Dimension(300, 200));
-        imageLabel.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
-        
-        guideArea = new JTextArea();
-        guideArea.setEditable(false);
-        guideArea.setFont(new Font("맑은 고딕", Font.PLAIN, 15));
-        guideArea.setLineWrap(true);
-        guideArea.setWrapStyleWord(true);
-        
-        centerPanel.add(imageLabel, BorderLayout.NORTH);
-        centerPanel.add(new JScrollPane(guideArea), BorderLayout.CENTER);
-
-        purchaseButton = new JButton("구매하기");
-        purchaseButton.setFont(new Font("맑은 고딕", Font.BOLD, 18));
-        purchaseButton.setPreferredSize(new Dimension(0, 70));
-        purchaseButton.setBackground(new Color(255, 235, 59)); 
-        purchaseButton.setEnabled(false); 
-        purchaseButton.addActionListener(e -> handlePurchase());
-
-        purchasePanel.add(topInfoPanel, BorderLayout.NORTH);
-        purchasePanel.add(centerPanel, BorderLayout.CENTER);
-        purchasePanel.add(purchaseButton, BorderLayout.SOUTH);
-
-        add(purchasePanel, BorderLayout.CENTER);
+        add(createDetailPanel(), BorderLayout.EAST);
+        loadProducts();
     }
 
-    public void loadProducts() {
+    private JPanel createDetailPanel() {
+        JPanel detailPanel = new JPanel();
+        detailPanel.setLayout(new BoxLayout(detailPanel, BoxLayout.Y_AXIS));
+        detailPanel.setPreferredSize(new Dimension(320, 0));
+        detailPanel.setBackground(CARD_BG);
+        detailPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
+
+        imageLabel = new JLabel("상품을 선택하세요", SwingConstants.CENTER);
+        imageLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        imageLabel.setPreferredSize(new Dimension(220, 220));
+        imageLabel.setMaximumSize(new Dimension(220, 220));
+        imageLabel.setBorder(new LineBorder(POINT_PURPLE, 1));
+        imageLabel.setForeground(Color.GRAY);
+
+        nameLabel = new JLabel("-");
+        nameLabel.setFont(new Font("맑은 고딕", Font.BOLD, 20));
+        nameLabel.setForeground(Color.WHITE);
+        nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        pointsLabel = new JLabel("가격: - P");
+        pointsLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 16));
+        pointsLabel.setForeground(POINT_CYAN);
+        pointsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        stockLabel = new JLabel("재고: -");
+        stockLabel.setForeground(Color.LIGHT_GRAY);
+        stockLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        guideArea = new JTextArea("상세 설명");
+        guideArea.setEditable(false);
+        guideArea.setLineWrap(true);
+        guideArea.setWrapStyleWord(true);
+        guideArea.setBackground(CARD_BG);
+        guideArea.setForeground(Color.WHITE);
+        guideArea.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
+
+        purchaseButton = new JButton("구매하기");
+        purchaseButton.setBackground(POINT_PURPLE);
+        purchaseButton.setForeground(Color.WHITE);
+        purchaseButton.setFont(new Font("맑은 고딕", Font.BOLD, 18));
+        purchaseButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        purchaseButton.setEnabled(false);
+        purchaseButton.addActionListener(e -> processPurchase());
+
+        detailPanel.add(imageLabel);
+        detailPanel.add(Box.createVerticalStrut(20));
+        detailPanel.add(nameLabel);
+        detailPanel.add(pointsLabel);
+        detailPanel.add(stockLabel);
+        detailPanel.add(Box.createVerticalStrut(15));
+        detailPanel.add(new JScrollPane(guideArea) {{ setBorder(null); setOpaque(false); getViewport().setOpaque(false); }});
+        detailPanel.add(Box.createVerticalGlue());
+        detailPanel.add(purchaseButton);
+
+        return detailPanel;
+    }
+
+    private void loadProducts() {
         ProductsDAO dao = new ProductsDAO();
         productsData = dao.getAllProducts();
+        renderProductList();
+    }
 
+    private void renderProductList() {
         productListPanel.removeAll();
-        if (productsData == null || productsData.isEmpty()) {
-            productListPanel.add(new JLabel("등록된 상품이 없습니다.", JLabel.CENTER));
-        } else {
-            for (ProductsDTO product : productsData) {
-                String status = (product.getStock() <= 0) ? " [품절]" : "";
-                String buttonText = "<html><center><b>" + product.getProductName() + "</b>" + status + "<br>"
-                                   + product.getRequiredPoints() + " P</center></html>";
-                JButton productBtn = new JButton(buttonText);
-                productBtn.setPreferredSize(new Dimension(180, 80));
-                productBtn.setBackground(product.getStock() <= 0 ? Color.LIGHT_GRAY : LIGHT_BLUE);
-                productBtn.addActionListener(e -> updatePurchasePanel(product));
-                productListPanel.add(productBtn);
-            }
+        for (ProductsDTO product : productsData) {
+            productListPanel.add(createProductCard(product));
         }
         productListPanel.revalidate();
         productListPanel.repaint();
     }
 
-    private void updatePurchasePanel(ProductsDTO product) {
-        this.selectedProduct = product;
-        nameLabel.setText(product.getProductName());
-        pointsLabel.setText("필요 포인트: " + product.getRequiredPoints() + " P");
-        stockLabel.setText("남은 재고: " + product.getStock() + " 개");
+    private JPanel createProductCard(ProductsDTO product) {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setBackground(CARD_BG);
+        card.setBorder(new LineBorder(new Color(50, 50, 80), 1));
 
-        if (product.getImagePath() != null && !product.getImagePath().isEmpty()) {
-            File imgFile = new File(product.getImagePath());
-            if (imgFile.exists()) {
-                ImageIcon icon = new ImageIcon(product.getImagePath());
-                Image img = icon.getImage().getScaledInstance(250, 180, Image.SCALE_SMOOTH);
-                imageLabel.setIcon(new ImageIcon(img));
-                imageLabel.setText("");
-            } else {
-                imageLabel.setIcon(null);
-                imageLabel.setText("이미지를 찾을 수 없습니다.");
+        JLabel img = new JLabel(loadScaledImage(product.getImagePath(), 120, 120));
+        img.setHorizontalAlignment(JLabel.CENTER);
+        card.add(img, BorderLayout.CENTER);
+
+        JLabel name = new JLabel(product.getProductName(), SwingConstants.CENTER);
+        name.setForeground(Color.WHITE);
+        name.setBorder(new EmptyBorder(5,0,5,0));
+        card.add(name, BorderLayout.SOUTH);
+
+        card.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                updatePurchasePanel(product);
             }
-        } else {
-            imageLabel.setIcon(null);
-            imageLabel.setText("이미지 미등록 상품");
-        }
+        });
+        return card;
+    }
 
-        StringBuilder sb = new StringBuilder();
-        sb.append(" [ 상세 설명 ]\n");
-        sb.append(product.getDescription() != null ? product.getDescription() : "설명이 없습니다.").append("\n\n");
-        sb.append(" --------------------------------------------\n");
-        sb.append(" 현재 나의 보유 포인트: ").append(currentUser.getBalancePoints()).append(" P");
-
-        guideArea.setText(sb.toString());
-
-        if (product.getStock() <= 0) {
-            purchaseButton.setText("품절 되었습니다");
-            purchaseButton.setEnabled(false);
-        } else {
-            purchaseButton.setText("구매하기");
-            purchaseButton.setEnabled(true);
+    private ImageIcon loadScaledImage(String path, int w, int h) {
+        if (path == null || path.isEmpty()) return null;
+        try {
+            ImageIcon icon = new ImageIcon(path);
+            Image img = icon.getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH);
+            return new ImageIcon(img);
+        } catch (Exception e) {
+            return null;
         }
     }
 
-    private void handlePurchase() {
-        if (currentUser == null || selectedProduct == null) return;
+    private void updatePurchasePanel(ProductsDTO product) {
+        if (product == null) return;
+        this.selectedProduct = product;
+        
+        nameLabel.setText(product.getProductName());
+        pointsLabel.setText(String.format("가격: %,d P", product.getRequiredPoints()));
+        stockLabel.setText("재고: " + product.getStock() + "개");
+        guideArea.setText(product.getDescription());
 
-        int userPoint = currentUser.getBalancePoints(); 
-        int price = selectedProduct.getRequiredPoints(); 
+        refreshUserBalance();
+        pointsLabel.setText(pointsLabel.getText() + String.format(" (내 포인트: %,d P)", currentUser.getBalancePoints()));
 
-        if (userPoint < price) {
-            JOptionPane.showMessageDialog(this, "포인트가 부족합니다.", "구매 불가", JOptionPane.WARNING_MESSAGE);
+        ImageIcon icon = loadScaledImage(product.getImagePath(), 200, 200);
+        if (icon != null) {
+            imageLabel.setIcon(icon);
+            imageLabel.setText("");
+        } else {
+            imageLabel.setIcon(null);
+            imageLabel.setText("이미지 없음");
+        }
+
+        purchaseButton.setEnabled(product.getStock() > 0);
+    }
+
+    private void refreshUserBalance() {
+        UserDAO uDao = new UserDAO();
+        UserDTO updated = uDao.getUserById(currentUser.getUserId());
+        if (updated != null) this.currentUser = updated;
+    }
+
+    private void processPurchase() {
+        if (selectedProduct == null) return;
+
+        refreshUserBalance();
+        int price = selectedProduct.getRequiredPoints();
+        if (currentUser.getBalancePoints() < price) {
+            JOptionPane.showMessageDialog(this, "포인트가 부족합니다!");
             return;
         }
 
-        if (selectedProduct.getStock() <= 0) {
-            JOptionPane.showMessageDialog(this, "재고가 부족합니다.", "품절", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        int confirm = JOptionPane.showConfirmDialog(this, 
+        int res = JOptionPane.showConfirmDialog(this, 
             selectedProduct.getProductName() + "을(를) 구매하시겠습니까?", "구매 확인", JOptionPane.YES_NO_OPTION);
-
-        if (confirm == JOptionPane.YES_OPTION) {
+        
+        if (res == JOptionPane.YES_OPTION) {
             try (Connection conn = RecycleDB.connect()) {
-                conn.setAutoCommit(false); 
-
+                conn.setAutoCommit(false);
                 try {
-                
-                    UserDAO uDao = new UserDAO();
-                    currentUser.setBalancePoints(userPoint - price);
-                    uDao.updateUserPoint(currentUser); 
+            
+                    currentUser.setBalancePoints(currentUser.getBalancePoints() - price);
+                    new UserDAO().updateUserPoint(conn, currentUser);
 
                     selectedProduct.setStock(selectedProduct.getStock() - 1);
-                    ProductsDAO pDao = new ProductsDAO();
-                    pDao.updateProduct(selectedProduct); 
+                    new ProductsDAO().updateProduct(conn, selectedProduct);
 
-                    PointLogDAO logDAO = new PointLogDAO();
-                    logDAO.insertSpendLog(conn, currentUser.getUserId(), selectedProduct.getProductName(), price);
+                    new PointLogDAO().insertSpendLog(conn, currentUser.getUserId(), selectedProduct.getProductName(), price);
 
-                    conn.commit(); 
-                    JOptionPane.showMessageDialog(this, "구매 완료! 감사합니다.");
+                    conn.commit();
+                    
+                    if (rankUpdateCallback != null) rankUpdateCallback.run();
+                    JOptionPane.showMessageDialog(this, "정상적으로 구매되었습니다!");
                     
                     loadProducts(); 
-                    updatePurchasePanel(selectedProduct); 
-
+                    
+                    for(ProductsDTO p : productsData) {
+                        if(p.getProductId() == selectedProduct.getProductId()) {
+                            updatePurchasePanel(p);
+                            break;
+                        }
+                    }
                 } catch (Exception ex) {
                     conn.rollback();
                     throw ex;
                 }
             } catch (Exception e) {
-                JOptionPane.showMessageDialog(this, "구매 실패: " + e.getMessage());
-                e.printStackTrace();
+                JOptionPane.showMessageDialog(this, "오류 발생: " + e.getMessage());
             }
         }
+    }
+
+    private static class CustomScrollBarUI extends BasicScrollBarUI {
+        @Override protected void configureScrollBarColors() { this.thumbColor = POINT_PURPLE; this.trackColor = BG_DARK; }
+        @Override protected JButton createDecreaseButton(int orientation) { return new JButton() {{ setPreferredSize(new Dimension(0,0)); }}; }
+        @Override protected JButton createIncreaseButton(int orientation) { return new JButton() {{ setPreferredSize(new Dimension(0,0)); }}; }
     }
 }

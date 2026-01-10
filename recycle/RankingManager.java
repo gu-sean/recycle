@@ -10,24 +10,23 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.ArrayList;
 
-
-
 public class RankingManager {
+    
     
     public static class RankingEntry { 
         private final String userId;
         private final String nickname;
-        private final int balancePoints; 
+        private final int totalPoints; 
         
-        public RankingEntry(String userId, String nickname, int balancePoints) {
+        public RankingEntry(String userId, String nickname, int totalPoints) {
             this.userId = userId;
             this.nickname = nickname;
-            this.balancePoints = balancePoints;
+            this.totalPoints = totalPoints;
         }
         
         public String getUserId() { return userId; }
         public String getNickname() { return nickname; }
-        public int getBalancePoints() { return balancePoints; }
+        public int getTotalPoints() { return totalPoints; }
     }
 
     private final RankingDAO rankingDAO; 
@@ -36,7 +35,6 @@ public class RankingManager {
 
     public RankingManager() {
         try {
-   
             this.rankingDAO = new RankingDAO(); 
             this.logDAO = new RecycleLogDAO(); 
             this.userDAO = new UserDAO(); 
@@ -46,19 +44,21 @@ public class RankingManager {
         }
     }
 
- 
+   
     public List<RankingEntry> getSortedRankingList() throws SQLException {
-        
         List<db.DTO.RankingDTO> dbRankingList = rankingDAO.getTopRankings();
         
         List<RankingEntry> rankingList = new ArrayList<>();
         
-        for (db.DTO.RankingDTO dbDto : dbRankingList) {
-             rankingList.add(new RankingEntry(
-                 dbDto.getUserId(), 
-                 dbDto.getNickname(), 
-                 dbDto.getBalancePoints() 
-             ));
+        if (dbRankingList != null) {
+            for (db.DTO.RankingDTO dbDto : dbRankingList) {
+
+                 rankingList.add(new RankingEntry(
+                     dbDto.getUserId(), 
+                     dbDto.getNickname(), 
+                     dbDto.getTotalPoints() 
+                 ));
+            }
         }
         
         return rankingList;
@@ -70,40 +70,47 @@ public class RankingManager {
         int myPoints = 0;
         String myNickname = userId; 
 
-        for (int i = 0; i < rankingList.size(); i++) {
-        	RankingEntry entry = rankingList.get(i);
-            
-            if (entry.getUserId().equals(userId)) {
-                myRank = i + 1; 
-                myPoints = entry.getBalancePoints(); 
-                myNickname = entry.getNickname();
-                break;
+ 
+        if (rankingList != null) {
+            for (int i = 0; i < rankingList.size(); i++) {
+                RankingEntry entry = rankingList.get(i);
+                if (entry.getUserId().equals(userId)) {
+                    myRank = i + 1; 
+                    myPoints = entry.getTotalPoints(); 
+                    myNickname = entry.getNickname();
+                    break;
+                }
             }
         }
         
-        String rankStr = (myRank != -1) ? String.valueOf(myRank) : "정보 없음";
+        String rankStr = (myRank != -1) ? String.valueOf(myRank) : "순위권 밖";
 
         if (myRank == -1) {
             try {
+
                 UserDTO userDto = userDAO.getUserById(userId); 
                 
                 if (userDto != null) {
                     myNickname = userDto.getNickname();
-                    myPoints = userDto.getBalancePoints();
-                    rankStr = "목록 밖"; 
+                    myPoints = userDto.getTotalPoints(); 
+                    rankStr = "순위권 밖"; 
                 } else {
                     myNickname = "알 수 없음";
                     rankStr = "정보 없음";
                 }
-            } catch (SQLException e) {
-                 System.err.println("❌ UserDAO 조회 중 오류 발생: " + e.getMessage());
+            } catch (Exception e) {
+                 System.err.println("❌ 실시간 정보 조회 오류: " + e.getMessage());
                  myNickname = "오류";
                  rankStr = "오류";
             }
         }
 
         return String.format(
-            "<html><p align='center'>[내 정보] 닉네임: <strong>%s</strong> (ID: %s) | 현재 포인트: <strong>%d점</strong> | 순위: <strong>%s위</strong></p></html>", 
-            myNickname, userId, myPoints, rankStr);
+            "<html><div style='text-align: center; color: white;'>" +
+            "[내 정보] 닉네임: <b style='color: #00fff0;'>%s</b> | " +
+            "누적 포인트: <b style='color: #00fff0;'>%,d P</b> | " +
+            "현재 순위: <b style='color: #00fff0;'>%s위</b>" +
+            "</div></html>", 
+            myNickname, myPoints, rankStr);
     }
 }

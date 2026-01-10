@@ -3,14 +3,17 @@ package db;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import javax.swing.JOptionPane;
 
 
 public class RecycleDB {
 
-    private static final String DB_URL =
-    private static final String DB_USER = 
-    private static final String DB_PASSWORD = 
+    private static final String DB_URL ="";
+    private static final String DB_USER = "";
+    private static final String DB_PASSWORD = "";
 
   
     public static Connection connect() throws SQLException {
@@ -25,3 +28,8 @@ public class RecycleDB {
         return DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
     }
 }
+
+
+
+
+

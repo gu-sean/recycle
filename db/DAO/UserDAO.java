@@ -92,7 +92,23 @@ public class UserDAO {
         }
     }
 
-    public UserDTO getUserById(String userID) throws SQLException {
+    public boolean registerUser(UserDTO user) throws SQLException {
+        String sql = "INSERT INTO " + USERS_TABLE + 
+                     " (USER_ID, PASSWORD, NICKNAME, BALANCE_POINTS, TOTAL_POINTS, ATTENDANCE_STREAK, IS_ADMIN) " +
+                     " VALUES (?, ?, ?, ?, ?, 0, ?)";
+        try (Connection conn = RecycleDB.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, user.getUserId());
+            pstmt.setString(2, user.getPassword() != null ? user.getPassword() : "1234");
+            pstmt.setString(3, user.getNickname());
+            pstmt.setInt(4, user.getBalancePoints());
+            pstmt.setInt(5, user.getTotalPoints());
+            pstmt.setBoolean(6, user.isAdmin());
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
+    public UserDTO getUserById(String userID) {
         String sql = "SELECT * FROM " + USERS_TABLE + " WHERE USER_ID = ?";
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -100,6 +116,8 @@ public class UserDAO {
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) return mapUserDTO(rs);
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
         return null; 
     }
@@ -133,18 +151,36 @@ public class UserDAO {
         }
     }
 
-  
     public boolean updateUserByAdmin(UserDTO user) throws SQLException {
         String sql = "UPDATE " + USERS_TABLE + 
-                     " SET NICKNAME = ?, BALANCE_POINTS = ?, IS_ADMIN = ? " + 
+                     " SET NICKNAME = ?, BALANCE_POINTS = ?, TOTAL_POINTS = ?, IS_ADMIN = ? " + 
                      " WHERE USER_ID = ?";
         try (Connection conn = RecycleDB.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, user.getNickname());
             pstmt.setInt(2, user.getBalancePoints());
-            pstmt.setBoolean(3, user.isAdmin());
-            pstmt.setString(4, user.getUserId());
+            pstmt.setInt(3, user.getTotalPoints()); 
+            pstmt.setBoolean(4, user.isAdmin());
+            pstmt.setString(5, user.getUserId());
             return pstmt.executeUpdate() > 0;
+        }
+    }
+
+    public int getTotalUserCount() throws SQLException {
+        String sql = "SELECT COUNT(*) FROM " + USERS_TABLE;
+        try (Connection conn = RecycleDB.connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            return rs.next() ? rs.getInt(1) : 0;
+        }
+    }
+
+    public int getTotalSystemPoints() throws SQLException {
+        String sql = "SELECT SUM(BALANCE_POINTS) FROM " + USERS_TABLE;
+        try (Connection conn = RecycleDB.connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            return rs.next() ? rs.getInt(1) : 0;
         }
     }
 
@@ -158,7 +194,7 @@ public class UserDAO {
             pstmt.executeUpdate();
         }
     }
- 
+
     public List<RankingDTO> getAllUserRankings() throws SQLException {
         String sql = "SELECT USER_ID, NICKNAME, TOTAL_POINTS FROM " + USERS_TABLE + 
                      " ORDER BY TOTAL_POINTS DESC, USER_ID ASC";
@@ -177,7 +213,6 @@ public class UserDAO {
         return rankingList;
     }
 
-  
     public boolean deleteUser(String userId) throws SQLException {
         String sql = "DELETE FROM " + USERS_TABLE + " WHERE USER_ID = ?";
         try (Connection conn = RecycleDB.connect();
@@ -187,7 +222,6 @@ public class UserDAO {
         }
     }
 
-   
     private UserDTO mapUserDTO(ResultSet rs) throws SQLException {
         return new UserDTO(
             rs.getString("USER_ID"),

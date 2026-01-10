@@ -18,7 +18,7 @@ public class PointLogDAO {
     public PointLogDAO() {
     }
 
-  
+ 
     public void insertPointLog(Connection conn, String userId, String type, String detail, int points) throws SQLException {
         String sql = "INSERT INTO " + POINT_LOGS_TABLE + 
                      " (USER_ID, TIMESTAMP, TYPE, DETAIL, POINT) VALUES (?, ?, ?, ?, ?)";
@@ -34,19 +34,16 @@ public class PointLogDAO {
         }
     }
 
-   
     public void insertSpendLog(Connection conn, String userId, String productName, int points) throws SQLException {
- 
         int spendPoints = (points > 0) ? -points : points;
         insertPointLog(conn, userId, "SPEND", "상품 구매: " + productName, spendPoints);
     }
 
-    
     public void insertEarnLog(Connection conn, String userId, String activity, int points) throws SQLException {
         insertPointLog(conn, userId, "EARN", activity, points);
     }
 
-   
+    
     public List<PointLogDTO> getPointLogs(Connection conn, String userId) throws SQLException {
         List<PointLogDTO> list = new ArrayList<>();
         
@@ -72,7 +69,7 @@ public class PointLogDAO {
         return list;
     }
     
-   
+
     public static void initializeDatabase() {
         String createTableSQL = "CREATE TABLE IF NOT EXISTS " + POINT_LOGS_TABLE + " ("
                 + "`LOG_ID` INT NOT NULL AUTO_INCREMENT,"

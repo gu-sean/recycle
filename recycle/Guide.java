@@ -1,225 +1,308 @@
 package recycle;
 
 import javax.swing.*;
-import javax.swing.event.ListSelectionListener;
+import javax.swing.border.*;
+import javax.swing.plaf.basic.BasicScrollBarUI;
+import javax.swing.plaf.basic.BasicSplitPaneDivider;
+import javax.swing.plaf.basic.BasicSplitPaneUI;
+import javax.swing.plaf.basic.BasicTabbedPaneUI;
 import java.awt.*;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
 import java.sql.SQLException;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.LinkedHashMap; 
-import java.util.Vector; 
 
-import db.DAO.GuideDAO; 
-import db.DAO.GuideDAO.ItemDetail; 
+import db.DAO.GuideDAO;
+import db.DAO.GuideDAO.ItemDetail;
 
 public class Guide extends JPanel {
 
-    private static final Map<String, Map<String, String>> INITIAL_GUIDE_DATA = new LinkedHashMap<>();
-    static {
-      
-        Map<String, String> paperItems = new LinkedHashMap<>();
-        paperItems.put("기본 배출 원칙", "<h3>종이류 배출 방법</h3><ul><li>물기에 젖지 않도록 보관하여 배출합니다.</li><li>비닐 코팅, 스프링, 테이프, 철핀 등 다른 재질은 모두 제거해야 합니다.</li><li>반듯하게 펴서 종이류끼리 묶어 배출합니다.</li></ul>");
-        paperItems.put("예외 (오염/비재활용)", "<h3>주의 사항</h3><ul><li class=\"note\">* 기름 등 이물질에 심하게 오염된 종이(박스)는 종량제 봉투로 배출합니다.</li></ul>"); 
-        INITIAL_GUIDE_DATA.put("종이", paperItems);
-    }
+    private static final Color BG_DARK = new Color(15, 12, 30);      
+    private static final Color BG_PANEL = new Color(25, 25, 50);     
+    private static final Color POINT_PURPLE = new Color(130, 90, 255); 
+    private static final Color POINT_CYAN = new Color(0, 255, 240);   
+    private static final Color INPUT_BG = new Color(40, 40, 75);     
 
-    private JList<String> categoryList;
-    private JList<String> itemList;
-    private DefaultListModel<String> itemListModel;
+    private JTabbedPane mainTabbedPane;
+    private JList<String> categoryList, itemList;
+    private DefaultListModel<String> categoryListModel, itemListModel;
     private JEditorPane editorPane;
-    private Map<String, String> categoryMap; 
+    private JScrollPane detailScrollPane; 
+    private JPanel centerCardPanel;       
+    private CardLayout cardLayout;
+    private JSplitPane leftSplit, mainSplit; 
     
     private JTextField searchField;
     private JButton searchButton;
+    private Map<String, String> allCategoryMap; 
 
     public Guide() {
         try {
             GuideDAO.initializeDatabase();
-            this.categoryMap = GuideDAO.getAllCategoryNamesAndIds(); 
+            this.allCategoryMap = GuideDAO.getAllCategoryNamesAndIds(); 
         } catch (Exception e) {
-            displayErrorUI("가이드 정보를 불러올 수 없습니다.");
+            displayErrorUI("데이터베이스 연결 실패: " + e.getMessage());
             return;
         }
+        setupLayout();
+        setupEvents();
+        loadInitialData();
+    }
 
-        setLayout(new BorderLayout(10, 10));
+    private void setupLayout() {
+        setLayout(new BorderLayout(0, 0)); 
+        setBackground(BG_DARK);
+        setBorder(new EmptyBorder(10, 20, 10, 20)); 
 
-        JPanel topPanel = new JPanel(new BorderLayout());
-        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        
-        searchField = new JTextField(20);
-        searchButton = new JButton("검색");
-        
-        searchPanel.add(new JLabel("품목 검색: "));
+        JPanel topWrapper = new JPanel(new BorderLayout());
+        topWrapper.setOpaque(false);
+
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setOpaque(false);
+        headerPanel.setBorder(new EmptyBorder(0, 5, 2, 5)); 
+
+        JLabel titleLabel = new JLabel("♻️ 분리수거 백과사전");
+        titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 28));
+        titleLabel.setForeground(POINT_CYAN);
+
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        searchPanel.setOpaque(false);
+        searchField = new JTextField(15);
+        searchField.setBackground(INPUT_BG);
+        searchField.setForeground(Color.WHITE);
+        searchField.setCaretColor(Color.WHITE);
+        searchField.setBorder(new CompoundBorder(new LineBorder(POINT_PURPLE, 1), new EmptyBorder(5, 10, 5, 10)));
+        searchButton = createStyledButton("검색", POINT_PURPLE, Color.WHITE);
         searchPanel.add(searchField);
         searchPanel.add(searchButton);
-        topPanel.add(searchPanel, BorderLayout.EAST);
-        
-        JLabel titleLabel = new JLabel("  분리수거 가이드");
-        titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
-        topPanel.add(titleLabel, BorderLayout.WEST);
-        
-        add(topPanel, BorderLayout.NORTH);
 
-        categoryList = new JList<>(new Vector<>(categoryMap.keySet()));
-        categoryList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        categoryList.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
-        
-        JScrollPane categoryScroll = new JScrollPane(categoryList);
-        categoryScroll.setBorder(BorderFactory.createTitledBorder("카테고리"));
+        headerPanel.add(titleLabel, BorderLayout.WEST);
+        headerPanel.add(searchPanel, BorderLayout.EAST);
 
-        itemListModel = new DefaultListModel<>();
-        itemList = new JList<>(itemListModel);
-        itemList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        itemList.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
+        mainTabbedPane = new JTabbedPane();
+        mainTabbedPane.setUI(new CustomTabbedPaneUI());
+        mainTabbedPane.setFont(new Font("맑은 고딕", Font.BOLD, 13));
+        mainTabbedPane.setPreferredSize(new Dimension(Short.MAX_VALUE, 32));
 
-        JScrollPane itemScroll = new JScrollPane(itemList);
-        itemScroll.setBorder(BorderFactory.createTitledBorder("품목 리스트"));
+        String[] tabs = {"재활용폐기물", "음식물류폐기물", "일반종량제폐기물", "불연성종량제폐기물", "대형폐기물", "공사장 생활폐기물", "생활계 유해폐기물", "기타"};
+        for (String tab : tabs) mainTabbedPane.addTab(tab, null);
+
+        topWrapper.add(headerPanel, BorderLayout.NORTH);
+        topWrapper.add(mainTabbedPane, BorderLayout.SOUTH);
+        add(topWrapper, BorderLayout.NORTH);
+
+        cardLayout = new CardLayout();
+        centerCardPanel = new JPanel(cardLayout);
+        centerCardPanel.setOpaque(false);
 
         editorPane = new JEditorPane();
         editorPane.setContentType("text/html");
         editorPane.setEditable(false);
-        JScrollPane detailScroll = new JScrollPane(editorPane);
-        detailScroll.setBorder(BorderFactory.createTitledBorder("배출 방법 및 주의사항"));
+        editorPane.setBackground(BG_PANEL);
+        detailScrollPane = createStyledScrollPane(editorPane, "분리배출 상세 가이드");
 
-        JSplitPane leftSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, categoryScroll, itemScroll);
-        leftSplit.setDividerLocation(150);
+        JPanel recycleView = new JPanel(new BorderLayout());
+        recycleView.setOpaque(false);
+        categoryListModel = new DefaultListModel<>();
+        categoryList = createStyledList(categoryListModel);
+        itemListModel = new DefaultListModel<>();
+        itemList = createStyledList(itemListModel);
         
-        JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftSplit, detailScroll);
-        mainSplit.setDividerLocation(350);
-        
-        add(mainSplit, BorderLayout.CENTER);
+        leftSplit = createCleanSplitPane(JSplitPane.HORIZONTAL_SPLIT, 
+                               createStyledScrollPane(categoryList, "분류"), 
+                               createStyledScrollPane(itemList, "품목 목록"));
+        leftSplit.setDividerLocation(120); 
+        leftSplit.setResizeWeight(0.2); 
 
-      
+        mainSplit = createCleanSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftSplit, detailScrollPane);
+        mainSplit.setDividerLocation(300);
+        mainSplit.setResizeWeight(0.1); 
+        
+        recycleView.add(mainSplit, BorderLayout.CENTER);
+
+        JPanel fullGuideView = new JPanel(new BorderLayout());
+        fullGuideView.setOpaque(false);
+
+        centerCardPanel.add(recycleView, "RECYCLE_MODE");
+        centerCardPanel.add(fullGuideView, "FULL_GUIDE_MODE");
+        
+        add(centerCardPanel, BorderLayout.CENTER);
+    }
+
+    private void filterCategoriesByTab(String tabName) {
+        JPanel fullGuideView = (JPanel) centerCardPanel.getComponent(1);
+        
+        if ("재활용폐기물".equals(tabName)) {
+            mainSplit.setRightComponent(detailScrollPane);
+            cardLayout.show(centerCardPanel, "RECYCLE_MODE");
+            
+            SwingUtilities.invokeLater(() -> {
+                leftSplit.setDividerLocation(120);
+                mainSplit.setDividerLocation(300);
+            });
+
+            if (categoryListModel.isEmpty()) {
+                allCategoryMap.keySet().forEach(categoryListModel::addElement);
+                categoryList.setSelectedIndex(0);
+            }
+            refreshDetailView();
+        } else {
+            cardLayout.show(centerCardPanel, "FULL_GUIDE_MODE");
+            fullGuideView.removeAll();
+            fullGuideView.add(detailScrollPane, BorderLayout.CENTER); 
+            fullGuideView.revalidate();
+            fullGuideView.repaint();
+
+            if ("일반종량제폐기물".equals(tabName)) {
+                editorPane.setText(GuideDAO.getGeneralWasteGuideHtml());
+            } else if ("음식물류폐기물".equals(tabName)) {
+                editorPane.setText(GuideDAO.getFoodWasteGuideHtml());
+            } else if ("불연성종량제폐기물".equals(tabName)) {
+                editorPane.setText(GuideDAO.getNonFlammableWasteGuideHtml());
+            } else if ("대형폐기물".equals(tabName)) {
+                editorPane.setText(GuideDAO.getBulkyWasteGuideHtml());
+            } else if ("공사장 생활폐기물".equals(tabName)) {
+                editorPane.setText(GuideDAO.getConstructionWasteGuideHtml());
+            } else if ("생활계 유해폐기물".equals(tabName)) {
+                editorPane.setText(GuideDAO.getHazardousWasteGuideHtml());
+            } else if ("기타".equals(tabName)) {
+                editorPane.setText(GuideDAO.getOtherWasteGuideHtml());
+            } else {
+                editorPane.setText("<html><body style='color:white; font-family:맑은 고딕; padding:20px;'>" +
+                        "<h2>" + tabName + "</h2>준비 중인 가이드입니다.</body></html>");
+            }
+        }
+        editorPane.setCaretPosition(0);
+    }
+
+    private void refreshDetailView() {
+        String selItem = itemList.getSelectedValue();
+        String selCat = categoryList.getSelectedValue();
+        if (selItem != null && selCat != null) {
+            try {
+                ItemDetail detail = GuideDAO.getItemDetail(selItem, selCat);
+                if (detail != null) {
+                    updateDetailWithImages(detail);
+                }
+            } catch (SQLException ex) { ex.printStackTrace(); }
+        }
+    }
+
+    private void updateDetailWithImages(ItemDetail item) {
+        String projectPath = System.getProperty("user.dir").replace("\\", "/");
+        String baseUrl = "file:///" + projectPath + "/src/main/webapp/";
+        
+        String html = "<html><head><base href='" + baseUrl + "'><style>" +
+                "body { background-color: #191932; color: #ffffff; font-family: '맑은 고딕'; padding: 15px; line-height: 1.6; }" +
+                ".header { color: #00fff0; font-size: 22px; font-weight: bold; border-bottom: 2px solid #825aff; padding-bottom: 5px; margin-bottom: 15px; }" +
+                ".content { background-color: #25254b; padding: 15px; border-radius: 10px; border: 1px solid #3d3d70; }" +
+                "img { border-radius: 5px; margin-top: 15px; border: 1px solid #825aff; max-width: 90%; }" +
+                "</style></head><body>" +
+                "<div class='header'>" + item.itemName + "</div>" +
+                "<div class='content'>" + item.disposalGuide + "</div>" +
+                "</body></html>";
+        
+        editorPane.setText(html);
+        editorPane.setCaretPosition(0);
+    }
+
+    private void setupEvents() {
+        mainTabbedPane.addChangeListener(e -> {
+            int sel = mainTabbedPane.getSelectedIndex();
+            if (sel != -1) filterCategoriesByTab(mainTabbedPane.getTitleAt(sel));
+        });
         categoryList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
-                String selectedCategory = categoryList.getSelectedValue();
-                if (selectedCategory != null) {
-                    loadItems(categoryMap.get(selectedCategory), selectedCategory);
-                }
+                String selected = categoryList.getSelectedValue();
+                if (selected != null) loadItems(allCategoryMap.get(selected));
             }
         });
-
-        itemList.addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                String selectedItemName = itemList.getSelectedValue();
-                if (selectedItemName != null) {
-                    try {
-                        String selectedCategory = categoryList.getSelectedValue();
-                        ItemDetail itemDetail = GuideDAO.getItemDetail(selectedItemName, selectedCategory);
-                        if (itemDetail != null) {
-                            updateDetailContent(itemDetail);
-                        }
-                    } catch (SQLException ex) {
-                        ex.printStackTrace();
-                    }
-                }
-            }
+        itemList.addListSelectionListener(e -> { 
+            if (!e.getValueIsAdjusting()) refreshDetailView(); 
         });
-
         searchButton.addActionListener(e -> performSearch());
-        
-        searchField.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_ENTER) performSearch();
-            }
-        });
+        searchField.addActionListener(e -> performSearch());
+    }
 
-        if (!categoryMap.isEmpty()) {
-            categoryList.setSelectedIndex(0);
-        }
+    private void loadInitialData() {
+        SwingUtilities.invokeLater(() -> {
+            mainTabbedPane.setSelectedIndex(0);
+            filterCategoriesByTab("재활용폐기물");
+        });
     }
 
     private void performSearch() {
         String keyword = searchField.getText().trim();
-        if (keyword.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "검색어를 입력해주세요.");
-            return;
-        }
-
+        if (keyword.isEmpty()) return;
         try {
             List<ItemDetail> allItems = GuideDAO.getAllItems();
-            ItemDetail foundItem = null;
-
-            for (ItemDetail item : allItems) {
-                if (item.itemName.contains(keyword)) {
-                    foundItem = item;
-                    break;
-                }
+            ItemDetail found = allItems.stream().filter(i -> i.itemName.contains(keyword)).findFirst().orElse(null);
+            if (found != null) {
+                mainTabbedPane.setSelectedIndex(0);
+                categoryList.setSelectedValue(found.categoryName, true);
+                itemList.setSelectedValue(found.itemName, true);
             }
-
-            if (foundItem != null) {
-           
-                categoryList.setSelectedValue(foundItem.categoryName, true);
-                
-                loadItems(categoryMap.get(foundItem.categoryName), foundItem.categoryName);
-                
-                itemList.setSelectedValue(foundItem.itemName, true);
-                
-                updateDetailContent(foundItem);
-            } else {
-                JOptionPane.showMessageDialog(this, "'" + keyword + "'에 대한 검색 결과가 없습니다.");
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "검색 중 오류가 발생했습니다.");
-        }
+        } catch (SQLException e) { e.printStackTrace(); }
     }
 
-    private void loadItems(String categoryId, String categoryName) {
+    private void loadItems(String categoryId) {
         try {
             List<String> items = GuideDAO.getItemNamesByCategory(categoryId);
             itemListModel.clear();
-            for (String item : items) {
-                itemListModel.addElement(item);
-            }
-            if (!items.isEmpty()) {
-                itemList.setSelectedIndex(0);
-            } else {
-                editorPane.setText("<html><body>품목 데이터가 없습니다.</body></html>");
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+            items.forEach(itemListModel::addElement);
+            if (!items.isEmpty()) itemList.setSelectedIndex(0);
+        } catch (SQLException e) { e.printStackTrace(); }
     }
 
-    private void updateDetailContent(ItemDetail item) {
-        String cssStyles = GuideDAO.getCssStyles();
-        StringBuilder contentBuilder = new StringBuilder();
-        
-        contentBuilder.append("<h1>").append(item.itemName).append("</h1>");
-        contentBuilder.append("<p><b>카테고리:</b> ").append(item.categoryName).append("</p>");
-        contentBuilder.append("<hr>");
-
-        String itemGuide = item.disposalGuide;
-        if (itemGuide == null || itemGuide.trim().isEmpty() || itemGuide.equals("공통 가이드 참조")) {
-            Map<String, String> commonGuideMap = INITIAL_GUIDE_DATA.get(item.categoryName);
-            if (commonGuideMap != null) {
-                for (String val : commonGuideMap.values()) {
-                    contentBuilder.append(val);
-                }
-            } else {
-                contentBuilder.append("<p>상세 배출 가이드가 준비 중입니다.</p>");
-            }
-        } else {
-            contentBuilder.append("<div class='guide-text'>").append(itemGuide.replace("\n", "<br>")).append("</div>");
+    private class CustomTabbedPaneUI extends BasicTabbedPaneUI {
+        @Override protected void installDefaults() { super.installDefaults(); contentBorderInsets = new Insets(0, 0, 0, 0); }
+        @Override protected void paintTabBackground(Graphics g, int tp, int ti, int x, int y, int w, int h, boolean isSel) {
+            g.setColor(isSel ? BG_PANEL : BG_DARK); g.fillRect(x, y, w, h);
+            if (isSel) { g.setColor(POINT_CYAN); g.fillRect(x, y + h - 3, w, 3); }
         }
+        @Override protected void paintContentBorder(Graphics g, int tp, int si) {}
+    }
 
-        String styledHtml = String.format("<html><head>%s</head><body>%s</body></html>", cssStyles, contentBuilder.toString());
-        editorPane.setText(styledHtml);
-        editorPane.setCaretPosition(0);
+    private JScrollPane createStyledScrollPane(Component view, String title) {
+        JScrollPane scroll = new JScrollPane(view);
+        scroll.setOpaque(false); scroll.getViewport().setOpaque(false);
+        scroll.setBorder(new TitledBorder(new LineBorder(POINT_PURPLE, 1), title, TitledBorder.LEFT, TitledBorder.TOP, new Font("맑은 고딕", Font.BOLD, 12), POINT_CYAN));
+        scroll.getVerticalScrollBar().setUI(new CustomScrollBarUI());
+        scroll.getVerticalScrollBar().setPreferredSize(new Dimension(7, 0));
+        return scroll;
+    }
+
+    private <T> JList<T> createStyledList(ListModel<T> model) {
+        JList<T> list = new JList<>(model);
+        list.setBackground(BG_PANEL); list.setForeground(Color.WHITE);
+        list.setSelectionBackground(POINT_PURPLE); list.setFixedCellHeight(35);
+        list.setFont(new Font("맑은 고딕", Font.PLAIN, 13));
+        return list;
+    }
+
+    private JButton createStyledButton(String text, Color bg, Color fg) {
+        JButton btn = new JButton(text); btn.setBackground(bg); btn.setForeground(fg);
+        btn.setFocusPainted(false); btn.setBorderPainted(false); btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
+    }
+
+    private JSplitPane createCleanSplitPane(int orientation, Component left, Component right) {
+        JSplitPane split = new JSplitPane(orientation, left, right);
+        split.setOpaque(false); split.setBorder(null); split.setDividerSize(4);
+        split.setUI(new BasicSplitPaneUI() {
+            @Override public BasicSplitPaneDivider createDefaultDivider() {
+                return new BasicSplitPaneDivider(this) { @Override public void paint(Graphics g) { g.setColor(BG_DARK); g.fillRect(0, 0, getWidth(), getHeight()); } };
+            }
+        });
+        return split;
+    }
+
+    private static class CustomScrollBarUI extends BasicScrollBarUI {
+        @Override protected void configureScrollBarColors() { this.thumbColor = POINT_PURPLE; this.trackColor = BG_DARK; }
+        @Override protected JButton createDecreaseButton(int i) { return new JButton() { @Override public Dimension getPreferredSize() { return new Dimension(0,0); } }; }
+        @Override protected JButton createIncreaseButton(int i) { return new JButton() { @Override public Dimension getPreferredSize() { return new Dimension(0,0); } }; }
     }
 
     private void displayErrorUI(String message) {
-        removeAll();
-        setLayout(new GridBagLayout()); 
-        JLabel errorLabel = new JLabel(message, SwingConstants.CENTER);
-        errorLabel.setForeground(Color.RED);
-        errorLabel.setFont(new Font("맑은 고딕", Font.BOLD, 16));
-        add(errorLabel);
-        revalidate();
-        repaint();
+        removeAll(); add(new JLabel(message) {{ setForeground(Color.RED); }}); revalidate(); repaint();
     }
 }

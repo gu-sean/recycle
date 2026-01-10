@@ -5,15 +5,15 @@ import java.util.Objects;
 
 public class ProductsDTO {
     private String productId;     
-    private String productName;  
+    private String productName;   
     private int requiredPoints; 
     private int stock;            
-    private String imagePath;     
+    private String imagePath;    
     private String description;    
 
     public ProductsDTO() { }
 
-   
+    
     public ProductsDTO(String productName, int requiredPoints, int stock, String imagePath, String description) {
         this.productName = productName;
         this.requiredPoints = requiredPoints;
@@ -33,7 +33,29 @@ public class ProductsDTO {
         this.description = description;
     }
 
- 
+   
+    public boolean isSoldOut() {
+        return this.stock <= 0;
+    }
+
+    
+    public boolean isLowStock(int threshold) {
+        return this.stock > 0 && this.stock < threshold;
+    }
+
+  
+    public void changeStock(int amount) {
+        this.stock = Math.max(0, this.stock + amount);
+    }
+
+   
+    public String getStockStatusString() {
+        if (isSoldOut()) return "❌ 품절";
+        if (isLowStock(5)) return "⚠️ 품절임박 (" + stock + ")";
+        return "✅ 재고여유 (" + stock + ")";
+    }
+
+
     public String getProductId() { return productId; }
     public void setProductId(String productId) { this.productId = productId; }
 
@@ -41,10 +63,14 @@ public class ProductsDTO {
     public void setProductName(String productName) { this.productName = productName; }
 
     public int getRequiredPoints() { return requiredPoints; }
-    public void setRequiredPoints(int requiredPoints) { this.requiredPoints = requiredPoints; }
+    public void setRequiredPoints(int requiredPoints) { 
+        this.requiredPoints = Math.max(0, requiredPoints); 
+    }
 
     public int getStock() { return stock; }
-    public void setStock(int stock) { this.stock = stock; }
+    public void setStock(int stock) { 
+        this.stock = Math.max(0, stock); 
+    }
 
     public String getImagePath() { return imagePath; }
     public void setImagePath(String imagePath) { this.imagePath = imagePath; }
@@ -55,11 +81,11 @@ public class ProductsDTO {
 
     @Override
     public String toString() {
-        return String.format("ProductsDTO [ID=%s, 이름=%s, 포인트=%d, 재고=%d, 설명=%s]", 
-                productId, productName, requiredPoints, stock, description);
+        return String.format("ProductsDTO [ID=%s, 이름=%s, 포인트=%d, 재고=%d, 경로=%s]", 
+                productId, productName, requiredPoints, stock, imagePath);
     }
 
-   
+  
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

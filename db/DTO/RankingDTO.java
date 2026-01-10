@@ -5,12 +5,13 @@ public class RankingDTO {
     
     private final String userId;
     private final String nickname;
-    private final int balancePoints; 
+    private final int totalPoints; 
 
-    public RankingDTO(String userId, String nickname, int balancePoints) {
+  
+    public RankingDTO(String userId, String nickname, int totalPoints) {
         this.userId = userId;
         this.nickname = nickname;
-        this.balancePoints = balancePoints;
+        this.totalPoints = totalPoints;
     }
 
     public String getUserId() {
@@ -21,7 +22,8 @@ public class RankingDTO {
         return nickname;
     }
 
-    public int getBalancePoints() {
-        return balancePoints;
+   
+    public int getTotalPoints() {
+        return totalPoints;
     }
 }
