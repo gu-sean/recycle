@@ -16,7 +16,7 @@ import db.DTO.ProductsDTO;
 
 public class ProductsDAO {
 
- 
+    
     public static void initializeDatabase() {
         String sql = "CREATE TABLE IF NOT EXISTS PRODUCTS (" +
                      "  PRODUCT_ID VARCHAR(50) NOT NULL," +
@@ -37,7 +37,7 @@ public class ProductsDAO {
         }
     }
 
-  
+    
     public List<ProductsDTO> getAllProducts() {
         List<ProductsDTO> list = new ArrayList<>();
         String sql = "SELECT * FROM PRODUCTS ORDER BY PRODUCT_NAME ASC";
@@ -55,7 +55,7 @@ public class ProductsDAO {
         return list; 
     }
 
- 
+    
     public ProductsDTO getProductById(String productId) throws SQLException {
         String sql = "SELECT * FROM PRODUCTS WHERE PRODUCT_ID = ?";
         
@@ -72,7 +72,7 @@ public class ProductsDAO {
         return null;
     }
 
-    
+   
     public boolean insertProduct(ProductsDTO product) throws SQLException {
         String sql = "INSERT INTO PRODUCTS (PRODUCT_ID, PRODUCT_NAME, REQUIRED_POINTS, STOCK, IMAGE_PATH, DESCRIPTION) " +
                      "VALUES (?, ?, ?, ?, ?, ?)";
@@ -112,7 +112,7 @@ public class ProductsDAO {
         }
     }
 
-   
+    
     public boolean updateProduct(ProductsDTO product) throws SQLException {
         try (Connection conn = RecycleDB.connect()) {
             updateProduct(conn, product);
@@ -135,7 +135,7 @@ public class ProductsDAO {
         }
     }
 
-  
+   
     private ProductsDTO mapResultSetToDTO(ResultSet rs) throws SQLException {
         ProductsDTO product = new ProductsDTO();
         product.setProductId(rs.getString("PRODUCT_ID"));
@@ -147,11 +147,11 @@ public class ProductsDAO {
         String rawPath = rs.getString("IMAGE_PATH"); 
         
         if (rawPath != null && !rawPath.isEmpty()) {
-      
+          
             if (new File(rawPath).isAbsolute()) {
                 product.setImagePath(rawPath);
             } else {
-     
+           
                 String absolutePath = System.getProperty("user.dir") + File.separator + "src" + 
                                       File.separator + "main" + File.separator + "webapp" + rawPath;
                 product.setImagePath(absolutePath);

@@ -8,9 +8,9 @@ public class PointLogDTO {
     
     private final int logId;
     private final String userId;
-    private final String type;    
+    private final String type;   
     private final String detail;  
-    private final int points;     
+    private final int points;    
     private final LocalDateTime timestamp; 
 
     public PointLogDTO(int logId, String userId, String type, String detail, int points, LocalDateTime timestamp) {
@@ -29,13 +29,13 @@ public class PointLogDTO {
     public int getPoints() { return points; }
     public LocalDateTime getTimestamp() { return timestamp; }
 
- 
+    
     public String getFormattedTimestamp() {
         if (timestamp == null) return "-";
         return timestamp.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
     }
 
-   
+    
     public String getFormattedAmount() {
         if (points > 0) {
             return String.format("+%,d P", points);

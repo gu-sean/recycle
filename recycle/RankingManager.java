@@ -16,7 +16,7 @@ public class RankingManager {
     public static class RankingEntry { 
         private final String userId;
         private final String nickname;
-        private final int totalPoints; 
+        private final int totalPoints;
         
         public RankingEntry(String userId, String nickname, int totalPoints) {
             this.userId = userId;
@@ -44,15 +44,16 @@ public class RankingManager {
         }
     }
 
-   
+  
     public List<RankingEntry> getSortedRankingList() throws SQLException {
+      
         List<db.DTO.RankingDTO> dbRankingList = rankingDAO.getTopRankings();
         
         List<RankingEntry> rankingList = new ArrayList<>();
         
         if (dbRankingList != null) {
             for (db.DTO.RankingDTO dbDto : dbRankingList) {
-
+              
                  rankingList.add(new RankingEntry(
                      dbDto.getUserId(), 
                      dbDto.getNickname(), 
@@ -64,13 +65,12 @@ public class RankingManager {
         return rankingList;
     }
     
-  
+   
     public String getMyRankInfo(String userId, List<RankingEntry> rankingList) {
         int myRank = -1;
         int myPoints = 0;
         String myNickname = userId; 
 
- 
         if (rankingList != null) {
             for (int i = 0; i < rankingList.size(); i++) {
                 RankingEntry entry = rankingList.get(i);
@@ -87,7 +87,7 @@ public class RankingManager {
 
         if (myRank == -1) {
             try {
-
+       
                 UserDTO userDto = userDAO.getUserById(userId); 
                 
                 if (userDto != null) {

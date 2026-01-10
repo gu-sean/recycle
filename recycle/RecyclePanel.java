@@ -4,247 +4,167 @@ import db.DAO.RecycleLogDAO;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.JTableHeader;
+import javax.swing.table.TableColumnModel;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
-import javax.swing.plaf.basic.BasicScrollBarUI;
 import javax.swing.plaf.basic.BasicComboBoxUI;
-import javax.swing.plaf.basic.ComboPopup;
-import javax.swing.plaf.basic.BasicComboPopup;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.awt.geom.Point2D;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashMap;
-import java.sql.SQLException;
 
 public class RecyclePanel extends JPanel {
 
     private final String userId;
     private final RecycleLogDAO logDAO;
-    private final Map<String, Integer> itemPoints; 
-    private final Runnable rankUpdateCallback; 
+    private final Map<String, Integer> itemPoints;
+    private final Runnable rankUpdateCallback;
 
     private JComboBox<String> itemComboBox;
-    private JLabel pointLabel; 
+    private JLabel pointLabel, progressStatusLabel;
     private JButton addButton, saveButton, removeButton, uploadButton;
     private JTable currentTable;
     private DefaultTableModel tableModel;
-    
-    private final List<String> loadedItems = new ArrayList<>();  
-    private final List<String> unsavedItems = new ArrayList<>(); 
+    private JProgressBar goalProgressBar;
 
-    private static final Color BG_DARK = new Color(15, 12, 30);   
-    private static final Color BG_LIGHT = new Color(40, 45, 90);     
-    private static final Color POINT_PURPLE = new Color(130, 90, 255); 
-    private static final Color POINT_CYAN = new Color(0, 255, 240);     
-    private static final Color COMP_BG = new Color(25, 25, 50); 
+    private final List<String> loadedItems = new ArrayList<>();
+    private final List<String> unsavedItems = new ArrayList<>();
 
-    private static final String DEFAULT_SELECTION_TEXT = "--- 품목 선택 ---";
-    private static final String[] COLUMN_NAMES = {"순번", "분리수거 품목", "포인트", "상태"};
+    private boolean isAnalyzing = false;
+    private float animAngle = 0;
+    private Timer animTimer;
+
+    private static final Color BG_DARK = new Color(10, 10, 20);
+    private static final Color BG_CARD = new Color(25, 25, 45);
+    private static final Color POINT_PURPLE = new Color(140, 80, 255);
+    private static final Color POINT_CYAN = new Color(0, 240, 255);
+    private static final Color POINT_RED = new Color(255, 50, 100);
+    private static final Color TEXT_WHITE = new Color(240, 240, 255);
+    private static final Color BORDER_COLOR = new Color(50, 50, 80);
+
+    private static final Font BOLD_FONT = new Font("맑은 고딕", Font.BOLD, 16);
+    private static final Font TITLE_FONT = new Font("맑은 고딕", Font.BOLD, 22);
 
     public RecyclePanel(String userId, Runnable rankUpdateCallback) {
         this.userId = userId;
-        this.rankUpdateCallback = rankUpdateCallback; 
-        this.itemPoints = initializeItemPoints(); 
+        this.rankUpdateCallback = rankUpdateCallback;
+        this.itemPoints = initializeItemPoints();
         this.logDAO = new RecycleLogDAO();
 
+        setBackground(BG_DARK);
+        setOpaque(true);
+
         setupLayout();
-        loadLogsAndRefreshUI(); 
+        setupAnimation();
+        loadLogsAndRefreshUI();
     }
 
     private Map<String, Integer> initializeItemPoints() {
         Map<String, Integer> map = new LinkedHashMap<>();
         map.put("종이", 15); map.put("비닐", 10); map.put("유리병", 25); map.put("종이팩", 20);
-        map.put("캔ㆍ고철", 40); map.put("스티로폼", 10); map.put("플라스틱", 10); map.put("기타", 5); 
+        map.put("캔/고철", 40); map.put("스티로폼", 10); map.put("플라스틱", 10); map.put("기타", 5);
         return map;
     }
 
-    public void loadLogsAndRefreshUI() {
-        try {
-            List<String> itemsFromDB = logDAO.getTodayRecycleItems(userId);
-            SwingUtilities.invokeLater(() -> {
-                loadedItems.clear(); 
-                if (itemsFromDB != null) {
-                    for (String s : itemsFromDB) loadedItems.add(s.trim());
-                }
-                rebuildTable();
-            });
-        } catch (SQLException e) { 
-            e.printStackTrace(); 
-        }
-    }
-
-    private synchronized void rebuildTable() {
-        tableModel.setRowCount(0); 
-        int currentTotal = 0;
-        int rowNum = 1;
-
-        for (String name : loadedItems) {
-            int p = itemPoints.getOrDefault(name, 0);
-            currentTotal += p;
-            tableModel.addRow(new Object[]{rowNum++, name, p + " P", "적립완료"});
-        }
-
-        for (String name : unsavedItems) {
-            int p = itemPoints.getOrDefault(name, 0);
-            currentTotal += p;
-            tableModel.addRow(new Object[]{rowNum++, name, p + " P", "대기중"});
-        }
-
-        if (tableModel.getRowCount() > 0) {
-            tableModel.addRow(new Object[]{"", "오늘 총 합계", currentTotal + " P", ""});
-        }
-    }
-
-    private void handleSaveLogs(ActionEvent e) {
-        if (unsavedItems.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "적립할 새로운 항목이 없습니다.");
-            return;
-        }
-        
-        try {
-            int earned = logDAO.insertRecycleLogsAndEarn(userId, new ArrayList<>(unsavedItems), itemPoints);
-            if (earned >= 0) {
-                JOptionPane.showMessageDialog(this, earned + " 포인트 적립 완료!");
-                loadedItems.addAll(new ArrayList<>(unsavedItems)); 
-                unsavedItems.clear();       
-                rebuildTable(); 
-                if (rankUpdateCallback != null) rankUpdateCallback.run(); 
+    private void setupAnimation() {
+        animTimer = new Timer(30, e -> {
+            if (isAnalyzing) {
+                animAngle += 0.15f;
+                repaint();
             }
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "저장 중 오류: " + ex.getMessage());
-        }
-    }
-
-    private void addRecycleItemToTable(String itemName) {
-        if (itemName == null || itemName.equals(DEFAULT_SELECTION_TEXT)) return;
-        if (loadedItems.contains(itemName) || unsavedItems.contains(itemName)) {
-            JOptionPane.showMessageDialog(this, "[" + itemName + "] 항목은 이미 목록에 있습니다.");
-            return;
-        }
-        unsavedItems.add(itemName);
-        rebuildTable();
-    }
-
-    private void handleRemove() {
-        int row = currentTable.getSelectedRow();
-        if (row == -1) return;
-        String status = (String) tableModel.getValueAt(row, 3);
-        if ("적립완료".equals(status)) {
-            JOptionPane.showMessageDialog(this, "이미 적립 완료된 내역은 삭제할 수 없습니다.");
-            return;
-        }
-        String name = (String) tableModel.getValueAt(row, 1);
-        unsavedItems.remove(name);
-        rebuildTable();
-    }
-
-    private void styleTable(JTable table) {
-        table.setRowHeight(35);
-        table.setBackground(COMP_BG);
-        table.setForeground(Color.WHITE);
-        table.setGridColor(new Color(60, 60, 110));
-        
-        DefaultTableCellRenderer renderer = new DefaultTableCellRenderer() {
-            @Override
-            public Component getTableCellRendererComponent(JTable t, Object v, boolean isS, boolean hasF, int r, int c) {
-                JLabel label = (JLabel) super.getTableCellRendererComponent(t, v, isS, hasF, r, c);
-                label.setHorizontalAlignment(CENTER);
-                if (r < t.getRowCount() && "오늘 총 합계".equals(t.getValueAt(r, 1))) {
-                    label.setForeground(POINT_CYAN);
-                } else {
-                    Object status = t.getValueAt(r, 3);
-                    if ("적립완료".equals(status)) {
-                        label.setForeground(new Color(130, 130, 130)); 
-                    } else {
-                        label.setForeground(POINT_CYAN); 
-                    }
-                }
-                return label;
-            }
-        };
-        for (int i = 0; i < table.getColumnCount(); i++) table.getColumnModel().getColumn(i).setCellRenderer(renderer);
+        });
     }
 
     private void setupLayout() {
-        setLayout(new BorderLayout(15, 0));
-        setBackground(BG_DARK);
-        setBorder(new EmptyBorder(25, 25, 25, 25));
+        setLayout(new BorderLayout(30, 0));
+        setBorder(new EmptyBorder(30, 30, 30, 30));
 
         JPanel leftPanel = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setPaint(new GradientPaint(0, 0, BG_DARK, 0, getHeight(), BG_LIGHT));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 25, 25);
+                g2.setPaint(new GradientPaint(0, 0, new Color(35, 30, 60), 0, getHeight(), BG_CARD));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
+
+                if (isAnalyzing) {
+                    float x = (float) (Math.cos(animAngle) * getWidth() / 2 + getWidth() / 2);
+                    float y = (float) (Math.sin(animAngle) * getHeight() / 2 + getHeight() / 2);
+                    Point2D centerPoint = new Point2D.Float(x, y);
+                    g2.setPaint(new RadialGradientPaint(centerPoint, 150f, new float[]{0f, 1f}, new Color[]{POINT_CYAN, new Color(0, 0, 0, 0)}));
+                    g2.setStroke(new BasicStroke(5f));
+                    g2.drawRoundRect(2, 2, getWidth()-4, getHeight()-4, 30, 30);
+                }
                 g2.dispose();
             }
         };
         leftPanel.setLayout(new BoxLayout(leftPanel, BoxLayout.Y_AXIS));
-        leftPanel.setPreferredSize(new Dimension(250, 0));
-        leftPanel.setOpaque(false);
-        leftPanel.setBorder(new EmptyBorder(40, 20, 40, 20));
+        leftPanel.setPreferredSize(new Dimension(320, 0));
+        leftPanel.setBorder(new EmptyBorder(40, 25, 40, 25));
 
         JLabel inputTitle = new JLabel("분리수거 등록");
-        inputTitle.setFont(new Font("맑은 고딕", Font.BOLD, 22));
+        inputTitle.setFont(TITLE_FONT);
         inputTitle.setForeground(POINT_CYAN);
         inputTitle.setAlignmentX(CENTER_ALIGNMENT);
 
         itemComboBox = new JComboBox<>(itemPoints.keySet().toArray(new String[0]));
-        itemComboBox.insertItemAt(DEFAULT_SELECTION_TEXT, 0);
-        itemComboBox.setSelectedIndex(0);
-        styleComboBox(itemComboBox); // 콤보박스 스타일 및 가운데 정렬 적용
+        styleComboBox(itemComboBox);
+        itemComboBox.setAlignmentX(CENTER_ALIGNMENT);
 
         pointLabel = new JLabel("선택 포인트: 0 P");
-        pointLabel.setFont(new Font("맑은 고딕", Font.BOLD, 15));
-        pointLabel.setForeground(Color.WHITE);
+        pointLabel.setFont(BOLD_FONT);
+        pointLabel.setForeground(TEXT_WHITE);
         pointLabel.setAlignmentX(CENTER_ALIGNMENT);
 
-        addButton = createStyledButton("목록에 추가", POINT_PURPLE, Color.WHITE);
-        uploadButton = createStyledButton("사진 인식 (AI)", new Color(60, 160, 140), Color.WHITE);
+        addButton = createStyledButton("목록에 추가 +", POINT_PURPLE, Color.WHITE);
+        uploadButton = createStyledButton("사진 인식 (AI)", new Color(45, 140, 120), Color.WHITE);
+        
+        progressStatusLabel = new JLabel("목표 달성도를 확인하세요");
+        progressStatusLabel.setForeground(TEXT_WHITE);
+        progressStatusLabel.setAlignmentX(CENTER_ALIGNMENT);
 
-        leftPanel.add(inputTitle);
-        leftPanel.add(Box.createVerticalStrut(40));
-        leftPanel.add(itemComboBox);
-        leftPanel.add(Box.createVerticalStrut(25));
-        leftPanel.add(pointLabel);
-        leftPanel.add(Box.createVerticalStrut(45));
-        leftPanel.add(addButton);
-        leftPanel.add(Box.createVerticalStrut(12));
-        leftPanel.add(uploadButton);
+        goalProgressBar = new JProgressBar(0, 100);
+        goalProgressBar.setMaximumSize(new Dimension(250, 25));
+        goalProgressBar.setBackground(new Color(40, 40, 60));
+        goalProgressBar.setForeground(POINT_CYAN);
+        goalProgressBar.setStringPainted(true);
+        goalProgressBar.setAlignmentX(CENTER_ALIGNMENT);
 
-        JPanel rightPanel = new JPanel(new BorderLayout(0, 15));
+        leftPanel.add(inputTitle); leftPanel.add(Box.createVerticalStrut(40));
+        leftPanel.add(itemComboBox); leftPanel.add(Box.createVerticalStrut(30));
+        leftPanel.add(pointLabel); leftPanel.add(Box.createVerticalStrut(50));
+        leftPanel.add(addButton); leftPanel.add(Box.createVerticalStrut(15));
+        leftPanel.add(uploadButton); leftPanel.add(Box.createVerticalGlue());
+        leftPanel.add(progressStatusLabel); leftPanel.add(Box.createVerticalStrut(10));
+        leftPanel.add(goalProgressBar);
+
+        JPanel rightPanel = new JPanel(new BorderLayout(0, 20));
         rightPanel.setOpaque(false);
 
-        JLabel tableTitle = new JLabel("오늘의 분리수거 로그");
-        tableTitle.setFont(new Font("맑은 고딕", Font.BOLD, 20));
-        tableTitle.setForeground(Color.WHITE);
-
-        tableModel = new DefaultTableModel(COLUMN_NAMES, 0) {
-            @Override public boolean isCellEditable(int r, int c) { return false; }
-        };
+        tableModel = new DefaultTableModel(new String[]{"순번", "분리수거 품목", "포인트", "상태"}, 0);
         currentTable = new JTable(tableModel);
         styleTable(currentTable);
 
         JScrollPane scrollPane = new JScrollPane(currentTable);
-        scrollPane.getViewport().setBackground(BG_DARK);
-        scrollPane.setBorder(new LineBorder(POINT_PURPLE, 1));
-        scrollPane.getVerticalScrollBar().setUI(new CustomScrollBarUI());
+        scrollPane.getViewport().setBackground(BG_CARD);
+        scrollPane.setBorder(new LineBorder(BORDER_COLOR, 1));
 
-        JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
+        JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
         btnRow.setOpaque(false);
-        removeButton = createStyledButton("선택 삭제", new Color(180, 60, 60), Color.WHITE);
+        removeButton = createStyledButton("선택 삭제", POINT_RED, Color.WHITE);
         saveButton = createStyledButton("적립 완료", POINT_CYAN, Color.BLACK);
-        
-        removeButton.setPreferredSize(new Dimension(110, 45));
-        saveButton.setPreferredSize(new Dimension(160, 45));
+        removeButton.setPreferredSize(new Dimension(140, 48));
+        saveButton.setPreferredSize(new Dimension(160, 48));
+        btnRow.add(removeButton); btnRow.add(saveButton);
 
-        btnRow.add(removeButton);
-        btnRow.add(saveButton);
-
-        rightPanel.add(tableTitle, BorderLayout.NORTH);
+        rightPanel.add(new JLabel("오늘의 분리수거 로그", SwingConstants.CENTER) {{
+            setFont(TITLE_FONT); setForeground(Color.WHITE);
+        }}, BorderLayout.NORTH);
         rightPanel.add(scrollPane, BorderLayout.CENTER);
         rightPanel.add(btnRow, BorderLayout.SOUTH);
 
@@ -252,70 +172,242 @@ public class RecyclePanel extends JPanel {
         add(rightPanel, BorderLayout.CENTER);
 
         itemComboBox.addActionListener(e -> updatePointLabel());
-        addButton.addActionListener(e -> addRecycleItemToTable((String)itemComboBox.getSelectedItem()));
-        uploadButton.addActionListener(e -> openImageUploadDialog());
+        addButton.addActionListener(e -> handleAddItem());
         removeButton.addActionListener(e -> handleRemove());
         saveButton.addActionListener(this::handleSaveLogs);
+        uploadButton.addActionListener(e -> handleImageUpload());
     }
 
-  
     private void styleComboBox(JComboBox<String> cb) {
-        cb.setMaximumSize(new Dimension(210, 45));
-        cb.setFont(new Font("맑은 고딕", Font.BOLD, 14));
-        cb.setBackground(Color.WHITE);
-        
-        DefaultListCellRenderer centerRenderer = new DefaultListCellRenderer();
-        centerRenderer.setHorizontalAlignment(DefaultListCellRenderer.CENTER);
-        cb.setRenderer(centerRenderer);
+        cb.setMaximumSize(new Dimension(250, 45));
+        cb.setBackground(BG_CARD);
+        cb.setForeground(Color.WHITE);
+        cb.setSelectedIndex(-1);
 
-        cb.setUI(new BasicComboBoxUI() {
-            @Override protected ComboPopup createPopup() {
-                BasicComboPopup popup = new BasicComboPopup(comboBox) {
-                    @Override protected JScrollPane createScroller() {
-                        JScrollPane scroller = super.createScroller();
-                        scroller.getVerticalScrollBar().setUI(new CustomScrollBarUI());
-                        return scroller;
-                    }
-                };
-                popup.setBorder(new LineBorder(POINT_PURPLE, 1));
-                return popup;
+        cb.setRenderer(new DefaultListCellRenderer() {
+            @Override public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                JLabel l = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                l.setHorizontalAlignment(CENTER);
+                l.setOpaque(true);
+                l.setBackground(isSelected ? new Color(60, 60, 100) : BG_CARD);
+                l.setForeground(Color.WHITE);
+                if (index == -1 && value == null) l.setText("품목을 선택하세요");
+                return l;
             }
         });
+
+        cb.setUI(new BasicComboBoxUI() {
+            @Override protected JButton createArrowButton() {
+                JButton btn = super.createArrowButton();
+                btn.setBackground(BG_CARD); btn.setBorder(null);
+                return btn;
+            }
+            @Override public void paintCurrentValueBackground(Graphics g, Rectangle b, boolean f) {
+                g.setColor(BG_CARD);
+                g.fillRect(b.x, b.y, b.width, b.height);
+            }
+        });
+        cb.setBorder(new LineBorder(POINT_PURPLE, 1, true));
     }
 
-    private JButton createStyledButton(String text, Color bg, Color fg) {
-        JButton btn = new JButton(text);
-        btn.setMaximumSize(new Dimension(210, 50));
-        btn.setBackground(bg);
-        btn.setForeground(fg);
-        btn.setFont(new Font("맑은 고딕", Font.BOLD, 15));
-        btn.setFocusPainted(false);
-        btn.setBorderPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.setAlignmentX(CENTER_ALIGNMENT);
-        return btn;
+    private void styleTable(JTable table) {
+        table.setRowHeight(45);
+        table.setBackground(BG_CARD);
+        table.setForeground(TEXT_WHITE);
+        table.setGridColor(BORDER_COLOR);
+        table.setShowGrid(true);
+
+        JTableHeader header = table.getTableHeader();
+        header.setPreferredSize(new Dimension(0, 45));
+        header.setDefaultRenderer(new DefaultTableCellRenderer() {
+            @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean isS, boolean hasF, int r, int c) {
+                JLabel l = (JLabel) super.getTableCellRendererComponent(t, v, isS, hasF, r, c);
+                l.setBackground(new Color(30, 30, 50));
+                l.setForeground(POINT_CYAN);
+                l.setHorizontalAlignment(CENTER);
+                l.setBorder(new LineBorder(BORDER_COLOR));
+                return l;
+            }
+        });
+
+        DefaultTableCellRenderer customRenderer = new DefaultTableCellRenderer() {
+            @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean isS, boolean hasF, int r, int c) {
+                JLabel l = (JLabel) super.getTableCellRendererComponent(t, v, isS, hasF, r, c);
+                l.setHorizontalAlignment(CENTER);
+                l.setOpaque(true);
+                
+                String status = (String) t.getValueAt(r, 3);
+                String itemName = (String) t.getValueAt(r, 1);
+
+                l.setBackground(isS ? new Color(50, 50, 80) : BG_CARD);
+
+                if ("오늘 총 합계".equals(itemName)) {
+                    l.setBackground(new Color(20, 20, 35));
+                    l.setForeground(POINT_CYAN);
+                    l.setFont(l.getFont().deriveFont(Font.BOLD));
+                } 
+          
+                else if ("적립완료".equals(status)) {
+                    l.setForeground(new Color(130, 130, 150)); 
+                    l.setFont(l.getFont().deriveFont(Font.PLAIN));
+                } 
+           
+                else if ("대기중".equals(status)) {
+                    l.setForeground(POINT_PURPLE);
+                    l.setFont(l.getFont().deriveFont(Font.BOLD));
+                } 
+                else {
+                    l.setForeground(TEXT_WHITE);
+                }
+
+                return l;
+            }
+        };
+        
+        for (int i = 0; i < table.getColumnCount(); i++) {
+            table.getColumnModel().getColumn(i).setCellRenderer(customRenderer);
+        }
+    }
+
+    private void handleAddItem() {
+        String selected = (String) itemComboBox.getSelectedItem();
+        if (selected == null) {
+            JOptionPane.showMessageDialog(this, "품목을 먼저 선택해주세요!", "알림", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (unsavedItems.contains(selected) || loadedItems.contains(selected)) {
+            JOptionPane.showMessageDialog(this, "이미 목록에 등록된 품목입니다.", "중복 오류", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        unsavedItems.add(selected);
+        rebuildTable();
+        itemComboBox.setSelectedIndex(-1);
+    }
+
+    private void handleRemove() {
+        int row = currentTable.getSelectedRow();
+        if (row == -1) {
+            JOptionPane.showMessageDialog(this, "삭제할 항목을 리스트에서 선택해주세요.", "알림", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        
+        String status = (String) tableModel.getValueAt(row, 3);
+        if ("적립완료".equals(status)) {
+            JOptionPane.showMessageDialog(this, "이미 적립 완료된 항목은 삭제할 수 없습니다.", "삭제 불가", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        String itemName = (String) tableModel.getValueAt(row, 1);
+        unsavedItems.remove(itemName);
+        rebuildTable();
+    }
+
+    private void handleSaveLogs(ActionEvent e) {
+        if (unsavedItems.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "새롭게 적립할 항목이 없습니다.", "알림", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        saveButton.setEnabled(false);
+        new Thread(() -> {
+            try {
+                int earned = logDAO.insertRecycleLogsAndEarn(userId, new ArrayList<>(unsavedItems), itemPoints);
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(this, earned + " 포인트가 성공적으로 적립되었습니다!", "적립 성공", JOptionPane.INFORMATION_MESSAGE);
+                    loadedItems.addAll(unsavedItems);
+                    unsavedItems.clear();
+                    rebuildTable();
+                    if (rankUpdateCallback != null) rankUpdateCallback.run();
+                });
+            } catch (SQLException ex) {
+                SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "DB 저장 중 오류가 발생했습니다: " + ex.getMessage(), "오류", JOptionPane.ERROR_MESSAGE));
+            } finally {
+                SwingUtilities.invokeLater(() -> saveButton.setEnabled(true));
+            }
+        }).start();
+    }
+
+    private void handleImageUpload() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileFilter(new FileNameExtensionFilter("이미지 파일", "jpg", "png", "jpeg"));
+        if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            isAnalyzing = true;
+            animTimer.start();
+            uploadButton.setEnabled(false);
+            
+            Timer simTimer = new Timer(2000, e -> {
+                isAnalyzing = false;
+                animTimer.stop();
+                uploadButton.setEnabled(true);
+                
+                String result = "플라스틱"; 
+                if (!unsavedItems.contains(result) && !loadedItems.contains(result)) {
+                    unsavedItems.add(result);
+                    rebuildTable();
+                    JOptionPane.showMessageDialog(this, "AI 분석 완료: [" + result + "] 항목이 감지되었습니다.", "인식 성공", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(this, "인식된 [" + result + "]은 이미 목록에 있습니다.", "중복 알림", JOptionPane.WARNING_MESSAGE);
+                }
+                repaint();
+            });
+            simTimer.setRepeats(false);
+            simTimer.start();
+        }
+    }
+
+    private synchronized void rebuildTable() {
+        tableModel.setRowCount(0);
+        int total = 0, num = 1;
+        for (String s : loadedItems) {
+            int p = itemPoints.getOrDefault(s, 0); total += p;
+            tableModel.addRow(new Object[]{num++, s, p + " P", "적립완료"});
+        }
+        for (String s : unsavedItems) {
+            int p = itemPoints.getOrDefault(s, 0); total += p;
+            tableModel.addRow(new Object[]{num++, s, p + " P", "대기중"});
+        }
+        if (tableModel.getRowCount() > 0) {
+            tableModel.addRow(new Object[]{"", "오늘 총 합계", total + " P", ""});
+        }
+        updateProgressBar(total);
+    }
+
+    private void updateProgressBar(int total) {
+        goalProgressBar.setValue(Math.min(total, 100));
+        goalProgressBar.setString(total + " / 100 P");
+        if (total >= 100) {
+            progressStatusLabel.setText("🎉 오늘의 목표 달성 완료!");
+            progressStatusLabel.setForeground(POINT_CYAN);
+        } else {
+            progressStatusLabel.setText("목표까지 " + (100 - total) + "P 남았습니다");
+            progressStatusLabel.setForeground(TEXT_WHITE);
+        }
     }
 
     private void updatePointLabel() {
         String item = (String) itemComboBox.getSelectedItem();
-        int point = (item == null || item.equals(DEFAULT_SELECTION_TEXT)) ? 0 : itemPoints.getOrDefault(item, 0);
-        pointLabel.setText("선택 포인트: " + point + " P");
+        pointLabel.setText("선택 포인트: " + (item == null ? 0 : itemPoints.getOrDefault(item, 0)) + " P");
     }
 
-    private void openImageUploadDialog() {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setFileFilter(new FileNameExtensionFilter("이미지 파일", "jpg", "png", "jpeg"));
-        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            String[] keys = itemPoints.keySet().toArray(new String[0]);
-            String detected = keys[(int)(Math.random() * keys.length)];
-            JOptionPane.showMessageDialog(this, "AI 분석 결과: [" + detected + "] 감지!");
-            addRecycleItemToTable(detected);
-        }
+    public void loadLogsAndRefreshUI() {
+        new Thread(() -> {
+            try {
+                List<String> items = logDAO.getTodayRecycleItems(userId);
+                SwingUtilities.invokeLater(() -> {
+                    loadedItems.clear();
+                    if (items != null) loadedItems.addAll(items);
+                    rebuildTable();
+                });
+            } catch (Exception e) { e.printStackTrace(); }
+        }).start();
     }
 
-    private static class CustomScrollBarUI extends BasicScrollBarUI {
-        @Override protected void configureScrollBarColors() { this.thumbColor = POINT_PURPLE; this.trackColor = BG_DARK; }
-        @Override protected JButton createDecreaseButton(int orientation) { return new JButton() {{ setPreferredSize(new Dimension(0,0)); }}; }
-        @Override protected JButton createIncreaseButton(int orientation) { return new JButton() {{ setPreferredSize(new Dimension(0,0)); }}; }
+    private JButton createStyledButton(String text, Color bg, Color fg) {
+        JButton btn = new JButton(text);
+        btn.setBackground(bg); btn.setForeground(fg);
+        btn.setFont(BOLD_FONT); btn.setMaximumSize(new Dimension(250, 50));
+        btn.setFocusPainted(false); btn.setBorder(new LineBorder(new Color(255,255,255,30), 1, true));
+        btn.setAlignmentX(CENTER_ALIGNMENT);
+        return btn;
     }
 }

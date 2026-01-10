@@ -12,7 +12,7 @@ import db.DTO.RankingDTO;
 
 public class RankingDAO {
 
-  
+   
     public List<RankingDTO> getTopRankings() throws SQLException {
         List<RankingDTO> rankings = new ArrayList<>();
 
@@ -27,7 +27,7 @@ public class RankingDAO {
             while (rs.next()) {
                 String userId = rs.getString("USER_ID");
                 String nickname = rs.getString("NICKNAME");
-        
+           
                 int points = rs.getInt("TOTAL_POINTS"); 
                 
                 RankingDTO dto = new RankingDTO(userId, nickname, points);

@@ -37,7 +37,6 @@ public class Guide extends JPanel {
 
     public Guide() {
         try {
-            GuideDAO.initializeDatabase();
             this.allCategoryMap = GuideDAO.getAllCategoryNamesAndIds(); 
         } catch (Exception e) {
             displayErrorUI("데이터베이스 연결 실패: " + e.getMessage());
@@ -58,9 +57,9 @@ public class Guide extends JPanel {
 
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setOpaque(false);
-        headerPanel.setBorder(new EmptyBorder(0, 5, 2, 5)); 
+        headerPanel.setBorder(new EmptyBorder(0, 5, 10, 5)); 
 
-        JLabel titleLabel = new JLabel("♻️ 분리수거 백과사전");
+        JLabel titleLabel = new JLabel(" 분리수거 백과사전");
         titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 28));
         titleLabel.setForeground(POINT_CYAN);
 
@@ -81,7 +80,7 @@ public class Guide extends JPanel {
         mainTabbedPane = new JTabbedPane();
         mainTabbedPane.setUI(new CustomTabbedPaneUI());
         mainTabbedPane.setFont(new Font("맑은 고딕", Font.BOLD, 13));
-        mainTabbedPane.setPreferredSize(new Dimension(Short.MAX_VALUE, 32));
+        mainTabbedPane.setPreferredSize(new Dimension(Short.MAX_VALUE, 40));
 
         String[] tabs = {"재활용폐기물", "음식물류폐기물", "일반종량제폐기물", "불연성종량제폐기물", "대형폐기물", "공사장 생활폐기물", "생활계 유해폐기물", "기타"};
         for (String tab : tabs) mainTabbedPane.addTab(tab, null);
@@ -110,12 +109,10 @@ public class Guide extends JPanel {
         leftSplit = createCleanSplitPane(JSplitPane.HORIZONTAL_SPLIT, 
                                createStyledScrollPane(categoryList, "분류"), 
                                createStyledScrollPane(itemList, "품목 목록"));
-        leftSplit.setDividerLocation(120); 
-        leftSplit.setResizeWeight(0.2); 
+        leftSplit.setResizeWeight(0.4); 
 
         mainSplit = createCleanSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftSplit, detailScrollPane);
-        mainSplit.setDividerLocation(300);
-        mainSplit.setResizeWeight(0.1); 
+        mainSplit.setResizeWeight(0.3);
         
         recycleView.add(mainSplit, BorderLayout.CENTER);
 
@@ -135,14 +132,9 @@ public class Guide extends JPanel {
             mainSplit.setRightComponent(detailScrollPane);
             cardLayout.show(centerCardPanel, "RECYCLE_MODE");
             
-            SwingUtilities.invokeLater(() -> {
-                leftSplit.setDividerLocation(120);
-                mainSplit.setDividerLocation(300);
-            });
-
             if (categoryListModel.isEmpty()) {
                 allCategoryMap.keySet().forEach(categoryListModel::addElement);
-                categoryList.setSelectedIndex(0);
+                if (!categoryListModel.isEmpty()) categoryList.setSelectedIndex(0);
             }
             refreshDetailView();
         } else {
@@ -152,24 +144,20 @@ public class Guide extends JPanel {
             fullGuideView.revalidate();
             fullGuideView.repaint();
 
-            if ("일반종량제폐기물".equals(tabName)) {
-                editorPane.setText(GuideDAO.getGeneralWasteGuideHtml());
-            } else if ("음식물류폐기물".equals(tabName)) {
-                editorPane.setText(GuideDAO.getFoodWasteGuideHtml());
-            } else if ("불연성종량제폐기물".equals(tabName)) {
-                editorPane.setText(GuideDAO.getNonFlammableWasteGuideHtml());
-            } else if ("대형폐기물".equals(tabName)) {
-                editorPane.setText(GuideDAO.getBulkyWasteGuideHtml());
-            } else if ("공사장 생활폐기물".equals(tabName)) {
-                editorPane.setText(GuideDAO.getConstructionWasteGuideHtml());
-            } else if ("생활계 유해폐기물".equals(tabName)) {
-                editorPane.setText(GuideDAO.getHazardousWasteGuideHtml());
-            } else if ("기타".equals(tabName)) {
-                editorPane.setText(GuideDAO.getOtherWasteGuideHtml());
-            } else {
-                editorPane.setText("<html><body style='color:white; font-family:맑은 고딕; padding:20px;'>" +
-                        "<h2>" + tabName + "</h2>준비 중인 가이드입니다.</body></html>");
+            String htmlContent;
+            switch (tabName) {
+                case "음식물류폐기물": htmlContent = GuideDAO.getFoodWasteGuideHtml(); break;
+                case "일반종량제폐기물": htmlContent = GuideDAO.getGeneralWasteGuideHtml(); break;
+                case "불연성종량제폐기물": htmlContent = GuideDAO.getNonFlammableWasteGuideHtml(); break;
+                case "대형폐기물": htmlContent = GuideDAO.getBulkyWasteGuideHtml(); break;
+                case "공사장 생활폐기물": htmlContent = GuideDAO.getConstructionWasteGuideHtml(); break;
+                case "생활계 유해폐기물": htmlContent = GuideDAO.getHazardousWasteGuideHtml(); break;
+                case "기타": htmlContent = GuideDAO.getOtherWasteGuideHtml(); break;
+                default:
+                    htmlContent = "<html><body><h2>" + tabName + "</h2>가이드 정보가 없습니다.</body></html>";
+                    break;
             }
+            editorPane.setText(htmlContent);
         }
         editorPane.setCaretPosition(0);
     }
@@ -187,24 +175,50 @@ public class Guide extends JPanel {
         }
     }
 
+    
     private void updateDetailWithImages(ItemDetail item) {
         String projectPath = System.getProperty("user.dir").replace("\\", "/");
         String baseUrl = "file:///" + projectPath + "/src/main/webapp/";
         
-        String html = "<html><head><base href='" + baseUrl + "'><style>" +
-                "body { background-color: #191932; color: #ffffff; font-family: '맑은 고딕'; padding: 15px; line-height: 1.6; }" +
-                ".header { color: #00fff0; font-size: 22px; font-weight: bold; border-bottom: 2px solid #825aff; padding-bottom: 5px; margin-bottom: 15px; }" +
-                ".content { background-color: #25254b; padding: 15px; border-radius: 10px; border: 1px solid #3d3d70; }" +
-                "img { border-radius: 5px; margin-top: 15px; border: 1px solid #825aff; max-width: 90%; }" +
-                "</style></head><body>" +
-                "<div class='header'>" + item.itemName + "</div>" +
-                "<div class='content'>" + item.disposalGuide + "</div>" +
-                "</body></html>";
-        
-        editorPane.setText(html);
+        String itemImg = (item.itemImagePath != null) ? item.itemImagePath : "";
+        String markImg = (item.markImagePath != null) ? item.markImagePath : "";
+
+        StringBuilder html = new StringBuilder();
+        html.append("<html><head><style>");
+        html.append("body { background-color: #191932; color: #ffffff; font-family: '맑은 고딕'; padding: 15px; }");
+        html.append(".title-table { border-bottom: 2px solid #825aff; margin-bottom: 15px; width: 100%; }");
+        html.append(".content-box { background-color: #25254b; padding: 15px; border-radius: 10px; border: 1px solid #3d3d70; line-height: 1.6; }");
+        html.append("</style></head><body>");
+
+        html.append("<table class='title-table' border='0' cellspacing='0' cellpadding='0'>");
+        html.append("  <tr>");
+        html.append("    <td align='left' valign='bottom' style='padding-bottom:10px;'>");
+        html.append("      <span style='color: #00fff0; font-size: 24px; font-weight: bold;'>").append(item.itemName).append("</span>");
+        html.append("    </td>");
+        if (!markImg.isEmpty()) {
+            html.append("    <td align='right' valign='middle'>");
+            html.append("      <img src='").append(baseUrl).append(markImg).append("' width='50' height='50'>");
+            html.append("    </td>");
+        }
+        html.append("  </tr>");
+        html.append("</table>");
+
+        if (!itemImg.isEmpty()) {
+            html.append("<div style='text-align: center; margin-bottom: 20px;'>");
+            html.append("  <img src='").append(baseUrl).append(itemImg).append("' width='250' style='border: 2px solid #3d3d70; border-radius: 15px;'>");
+            html.append("</div>");
+        }
+
+        html.append("<div class='content-box'>");
+        html.append(item.disposalGuide);
+        html.append("</div>");
+
+        html.append("</body></html>");
+
+        editorPane.setText(html.toString());
         editorPane.setCaretPosition(0);
     }
-
+    
     private void setupEvents() {
         mainTabbedPane.addChangeListener(e -> {
             int sel = mainTabbedPane.getSelectedIndex();
@@ -227,6 +241,8 @@ public class Guide extends JPanel {
         SwingUtilities.invokeLater(() -> {
             mainTabbedPane.setSelectedIndex(0);
             filterCategoriesByTab("재활용폐기물");
+            leftSplit.setDividerLocation(140);
+            mainSplit.setDividerLocation(330);
         });
     }
 
@@ -240,6 +256,8 @@ public class Guide extends JPanel {
                 mainTabbedPane.setSelectedIndex(0);
                 categoryList.setSelectedValue(found.categoryName, true);
                 itemList.setSelectedValue(found.itemName, true);
+            } else {
+                JOptionPane.showMessageDialog(this, "'" + keyword + "'에 대한 검색 결과가 없습니다.", "검색 알림", JOptionPane.INFORMATION_MESSAGE);
             }
         } catch (SQLException e) { e.printStackTrace(); }
     }
@@ -303,6 +321,12 @@ public class Guide extends JPanel {
     }
 
     private void displayErrorUI(String message) {
-        removeAll(); add(new JLabel(message) {{ setForeground(Color.RED); }}); revalidate(); repaint();
+        removeAll(); 
+        setLayout(new GridBagLayout());
+        JLabel errorLabel = new JLabel(message);
+        errorLabel.setForeground(Color.RED);
+        errorLabel.setFont(new Font("맑은 고딕", Font.BOLD, 16));
+        add(errorLabel); 
+        revalidate(); repaint();
     }
 }

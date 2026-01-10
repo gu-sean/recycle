@@ -22,7 +22,7 @@ public class RankingDTO {
         return nickname;
     }
 
-   
+  
     public int getTotalPoints() {
         return totalPoints;
     }

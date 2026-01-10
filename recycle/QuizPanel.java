@@ -3,6 +3,7 @@ package recycle;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
+import javax.swing.plaf.basic.BasicProgressBarUI;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -15,35 +16,33 @@ import db.DAO.RecycleLogDAO;
 import db.DAO.GuideDAO;
 import db.DAO.GuideDAO.ItemDetail;
 
+
 public class QuizPanel extends JPanel {
 
     private final UserDTO currentUser;
     private final RecycleLogDAO logDAO;
     private final Runnable rankUpdateCallback;
 
-    private JLabel questionLabel;
-    private JPanel quizGrid;
-    private JLabel messageLabel;
-    private JEditorPane guideDisplayArea;
+    private JLabel questionLabel, messageLabel, imageQuestionLabel, itemNameLabel;
+    private JTextArea guideTextArea;
     private JScrollPane guideScrollPane;
-    private JLabel questionImageLabel;
+    private JPanel quizGrid, displayPanel;
     private JButton nextButton;
     private JProgressBar progressBar;
 
     private List<Quiz> quizList;
-    private List<WrongData> wrongAnswerList = new ArrayList<>();
     private int currentQuizIndex = 0;
     private int correctCount = 0;
     private boolean answerSubmitted = false;
-    private final Random random = new Random();
     private boolean quizAlreadyTaken = false;
 
-    private static final Color BG_DARK = new Color(20, 15, 40);
-    private static final Color POINT_PURPLE = new Color(150, 100, 255);
+    private static final Color BG_DARK = new Color(13, 13, 25);
+    private static final Color BG_CARD = new Color(30, 30, 55);
     private static final Color POINT_CYAN = new Color(0, 255, 240);
-    private static final Color POINT_RED = new Color(255, 80, 120);
-    private static final Color CARD_BG = new Color(35, 30, 70);
-    private static final Color TEXT_LIGHT = new Color(240, 240, 240);
+    private static final Color POINT_PINK = new Color(255, 100, 200);
+    private static final Color POINT_RED = new Color(255, 60, 100);
+    private static final Font FONT_BOLD_LARGE = new Font("맑은 고딕", Font.BOLD, 32);
+    private static final Font FONT_BOLD_MEDIUM = new Font("맑은 고딕", Font.BOLD, 22);
 
     public QuizPanel(UserDTO user, Runnable rankUpdateCallback) {
         this.currentUser = user;
@@ -52,512 +51,416 @@ public class QuizPanel extends JPanel {
 
         setLayout(new BorderLayout());
         setBackground(BG_DARK);
-        setBorder(new EmptyBorder(30, 40, 30, 40));
-
-        loadInitialData();
+        
+        checkQuizStatusFromDB();
         initUI();
     }
 
-    private void loadInitialData() {
+    private void checkQuizStatusFromDB() {
         if (currentUser == null) return;
         try {
-            quizAlreadyTaken = logDAO.hasTakenQuizToday(currentUser.getUserId());
-            if (quizAlreadyTaken) {
-                this.wrongAnswerList = logDAO.getWrongAnswersToday(currentUser.getUserId());
-            }
-        } catch (SQLException e) { 
-            System.err.println("데이터 로딩 중 오류: " + e.getMessage());
+            this.quizAlreadyTaken = logDAO.hasTakenQuizToday(currentUser.getUserId());
+        } catch (SQLException e) {
+            this.quizAlreadyTaken = false;
         }
     }
 
-    private void initUI() {
+    public void initUI() {
         removeAll();
-        if (quizAlreadyTaken) showAlreadyTakenScreen();
-        else showStartScreen();
-        revalidate(); repaint();
+        if (quizAlreadyTaken) {
+            showRestrictedScreen();
+        } else {
+            showStartScreen();
+        }
+        revalidate();
+        repaint();
     }
 
-    private void showAlreadyTakenScreen() {
-        JPanel container = new JPanel(new GridBagLayout());
-        container.setOpaque(false);
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0; gbc.insets = new Insets(10, 0, 10, 0);
-
-        JLabel msg = new JLabel("오늘의 퀴즈 참여 완료!", SwingConstants.CENTER);
-        msg.setFont(new Font("맑은 고딕", Font.BOLD, 35));
-        msg.setForeground(POINT_CYAN);
-
-        JButton noteBtn = new JButton("오늘의 오답 노트 복습");
-        styleButton(noteBtn, 20);
-        noteBtn.addActionListener(e -> {
-            if (wrongAnswerList.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "오늘 틀린 문제가 없습니다. 완벽합니다! ✨");
-            } else {
-                showWrongNotePopup();
-            }
-        });
-
-        gbc.gridy = 0; container.add(msg, gbc);
-        gbc.gridy = 1; gbc.insets = new Insets(50, 0, 0, 0);
-        container.add(noteBtn, gbc);
-        add(container, BorderLayout.CENTER);
+    private void showRestrictedScreen() {
+        JPanel p = new JPanel(new GridBagLayout());
+        p.setOpaque(false);
+        
+        JLabel t = new JLabel("오늘의 미션 완료! ✨");
+        t.setFont(FONT_BOLD_LARGE);
+        t.setForeground(POINT_CYAN);
+        
+        JLabel s = new JLabel("퀴즈는 하루에 한 번만 참여할 수 있습니다. 내일 다시 도전하세요!");
+        s.setFont(new Font("맑은 고딕", Font.PLAIN, 18));
+        s.setForeground(Color.LIGHT_GRAY);
+        
+        JButton b = new JButton("오늘의 오답 노트 확인");
+        styleButton(b, 20, POINT_PINK);
+        b.addActionListener(e -> showWrongNotePopup());
+        
+        GridBagConstraints g = new GridBagConstraints();
+        g.gridy = 0; p.add(t, g);
+        g.gridy = 1; g.insets = new Insets(15, 0, 40, 0); p.add(s, g);
+        g.gridy = 2; p.add(b, g);
+        
+        add(p, BorderLayout.CENTER);
     }
 
     private void showStartScreen() {
-        JPanel startPanel = new JPanel(new GridBagLayout());
-        startPanel.setOpaque(false);
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-
-        JLabel title = new JLabel("오늘의 분리수거 퀴즈");
-        title.setFont(new Font("맑은 고딕", Font.BOLD, 42));
-        title.setForeground(POINT_CYAN);
-
-        JLabel notice = new JLabel("※ 중간 종료 시 진행 상황이 저장되지 않습니다.");
-        notice.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
-        notice.setForeground(new Color(180, 180, 200));
-
-        JButton startBtn = new JButton("퀴즈 시작하기");
-        styleButton(startBtn, 22);
-        startBtn.addActionListener(e -> startQuiz());
-
-        gbc.gridy = 0; gbc.insets = new Insets(0, 0, 10, 0);
-        startPanel.add(title, gbc);
-        gbc.gridy = 1; gbc.insets = new Insets(0, 0, 40, 0);
-        startPanel.add(notice, gbc);
-        gbc.gridy = 2;
-        startPanel.add(startBtn, gbc);
-        add(startPanel, BorderLayout.CENTER);
+        JPanel p = new JPanel(new GridBagLayout());
+        p.setOpaque(false);
+        
+        JLabel t = new JLabel("분리수거 데일리 퀴즈");
+        t.setFont(new Font("맑은 고딕", Font.BOLD, 50));
+        t.setForeground(POINT_CYAN);
+        
+        JButton b = new JButton("미션 시작하기");
+        styleButton(b, 28, POINT_CYAN);
+        b.addActionListener(e -> {
+            checkQuizStatusFromDB();
+            if(quizAlreadyTaken) {
+                initUI();
+            } else {
+                startQuiz();
+            }
+        });
+        
+        GridBagConstraints g = new GridBagConstraints();
+        g.gridy = 0; g.insets = new Insets(0, 0, 40, 0); p.add(t, g);
+        g.gridy = 1; p.add(b, g);
+        
+        add(p, BorderLayout.CENTER);
     }
 
     private void startQuiz() {
-        showLoadingScreen();
-        
-        SwingWorker<Void, Void> worker = new SwingWorker<>() {
-            @Override
-            protected Void doInBackground() throws Exception {
-                currentQuizIndex = 0;
-                correctCount = 0;
-                prepareQuizFromGuide();
-                Thread.sleep(500); 
-                return null;
-            }
-
-            @Override
-            protected void done() {
-                if (quizList == null || quizList.isEmpty()) {
-                    JOptionPane.showMessageDialog(QuizPanel.this, "퀴즈 데이터를 불러올 수 없습니다.");
-                    initUI();
-                    return;
-                }
-                setupQuizUI();
-                showNextQuiz();
-            }
-        };
-        worker.execute();
-    }
-
-    private void showLoadingScreen() {
-        removeAll();
-        JPanel lp = new JPanel(new GridBagLayout());
-        lp.setOpaque(false);
-        JLabel l = new JLabel("분리수거 지침을 분석 중입니다...");
-        l.setFont(new Font("맑은 고딕", Font.BOLD, 20));
-        l.setForeground(POINT_CYAN);
-        
-        JProgressBar pb = new JProgressBar();
-        pb.setIndeterminate(true);
-        pb.setPreferredSize(new Dimension(300, 5));
-        pb.setForeground(POINT_CYAN);
-        pb.setBackground(CARD_BG);
-
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridy = 0; lp.add(l, gbc);
-        gbc.gridy = 1; gbc.insets = new Insets(20,0,0,0); lp.add(pb, gbc);
-        
-        add(lp, BorderLayout.CENTER);
-        revalidate(); repaint();
-    }
-
-    @SuppressWarnings("unchecked")
-    private void prepareQuizFromGuide() {
-        quizList = new ArrayList<>();
-        wrongAnswerList.clear(); 
+        currentQuizIndex = 0;
+        correctCount = 0;
         try {
-            List<ItemDetail> allItems = GuideDAO.getAllItems();
-            Map<String, String> categoryIds = GuideDAO.getAllCategoryNamesAndIds();
-            
-            java.lang.reflect.Field field = GuideDAO.class.getDeclaredField("CATEGORY_RESOURCES");
-            field.setAccessible(true);
-            Map<String, String[]> resources = (Map<String, String[]>) field.get(null);
-
-            Collections.shuffle(allItems);
-            int count = Math.min(allItems.size(), 5);
-            for (int i = 0; i < count; i++) {
-                ItemDetail target = allItems.get(i);
-                Quiz.QuizType qType = random.nextBoolean() ? Quiz.QuizType.IMAGE_TO_CATEGORY : Quiz.QuizType.GUIDE_TO_IMAGE;
-                
-                String cid = categoryIds.get(target.categoryName);
-                String markImg = (resources.get(cid) != null) ? resources.get(cid)[2] : "";
-
-                String clean = target.disposalGuide.replaceAll("<[^>]*>", " ").replaceAll("\\s+", " ").trim();
-                String summary = summarizeGuide(clean);
-
-                List<QuizOption> options = new ArrayList<>();
-                options.add(new QuizOption((qType == Quiz.QuizType.IMAGE_TO_CATEGORY) ? target.categoryName : target.itemName, markImg, true));
-
-                if (qType == Quiz.QuizType.IMAGE_TO_CATEGORY) {
-                    categoryIds.keySet().stream().filter(c -> !c.equals(target.categoryName)).distinct().limit(3)
-                        .forEach(c -> options.add(new QuizOption(c, resources.get(categoryIds.get(c))[2], false)));
-                } else {
-                    allItems.stream().filter(it -> !it.itemName.equals(target.itemName)).distinct().limit(3)
-                        .forEach(it -> options.add(new QuizOption(it.itemName, resources.get(categoryIds.get(it.categoryName))[2], false)));
-                }
-
-                Collections.shuffle(options);
-                String qTitle = (qType == Quiz.QuizType.IMAGE_TO_CATEGORY) ? "다음 지침이 설명하는 카테고리는?" : "다음 품목이 속하는 카테고리는?";
-                quizList.add(new Quiz(qType, qTitle, summary, markImg, options, (qType == Quiz.QuizType.IMAGE_TO_CATEGORY ? 1 : 0)));
-            }
-        } catch (Exception e) { e.printStackTrace(); }
+            prepareMixedQuiz();
+            setupQuizUI();
+            showNextQuiz();
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "퀴즈 데이터를 불러오는 중 오류가 발생했습니다.");
+        }
     }
 
-    private String summarizeGuide(String fullText) {
-        if (fullText.length() <= 80) return fullText;
-        String[] sentences = fullText.split("(?<=[.!?])\\s+");
-        StringBuilder sb = new StringBuilder();
-        for (String s : sentences) {
-            if (sb.length() + s.length() < 100) {
-                if (sb.length() > 0) sb.append(" ");
-                sb.append(s);
-            } else {
-                if (sb.length() == 0) sb.append(s.substring(0, Math.min(s.length(), 90)));
-                break;
+    private void prepareMixedQuiz() throws Exception {
+        quizList = new ArrayList<>();
+        List<ItemDetail> allItems = GuideDAO.getAllItems();
+        if (allItems == null || allItems.isEmpty()) return;
+        Collections.shuffle(allItems);
+        
+        for (int i = 0; i < 5; i++) {
+            ItemDetail target = allItems.get(i % allItems.size());
+            Quiz.QuizType type = (i % 2 == 0) ? Quiz.QuizType.IMAGE_TO_CATEGORY : Quiz.QuizType.GUIDE_TO_IMAGE;
+            
+            String clean = target.disposalGuide.replaceAll("<[^>]*>", " ").replaceAll("&nbsp;", " ").replaceAll("\\s+", " ").trim();
+            String summary = clean;
+            int firstDot = clean.indexOf(".");
+            if (firstDot != -1) {
+                int secondDot = clean.indexOf(".", firstDot + 1);
+                summary = (secondDot != -1) ? clean.substring(0, secondDot + 1) : clean.substring(0, firstDot + 1);
             }
+            
+            List<QuizOption> options = new ArrayList<>();
+            options.add(new QuizOption(target.categoryName, target.itemName, target.itemImagePath, true));
+            
+            List<ItemDetail> others = new ArrayList<>(allItems);
+            others.remove(target);
+            Collections.shuffle(others);
+            for (int j = 0; j < 3; j++) {
+                ItemDetail o = others.get(j % others.size());
+                options.add(new QuizOption(o.categoryName, o.itemName, o.itemImagePath, false));
+            }
+            Collections.shuffle(options);
+            quizList.add(new Quiz(type, summary, target.itemImagePath, target.itemName, options));
         }
-        return sb.toString();
     }
 
     private void setupQuizUI() {
         removeAll();
-        JPanel topContainer = new JPanel(new BorderLayout());
-        topContainer.setOpaque(false);
-
         progressBar = new JProgressBar(0, 5);
+        progressBar.setPreferredSize(new Dimension(getWidth(), 12));
         progressBar.setForeground(POINT_CYAN);
-        progressBar.setBackground(new Color(50, 50, 80));
-        progressBar.setPreferredSize(new Dimension(0, 8));
-        progressBar.setBorderPainted(false);
-        topContainer.add(progressBar, BorderLayout.NORTH);
-
-        JPanel questionPanel = new JPanel(new BorderLayout(0, 15));
-        questionPanel.setOpaque(false);
-        questionPanel.setBorder(new EmptyBorder(20, 0, 20, 0));
-
-        questionLabel = new JLabel(" ", SwingConstants.CENTER);
-        questionLabel.setFont(new Font("맑은 고딕", Font.BOLD, 28));
-        questionLabel.setForeground(TEXT_LIGHT);
+        progressBar.setBackground(BG_CARD);
+        progressBar.setUI(new BasicProgressBarUI());
+        add(progressBar, BorderLayout.NORTH);
         
-        questionImageLabel = new JLabel();
-        questionImageLabel.setHorizontalAlignment(SwingConstants.CENTER);
-
-        guideDisplayArea = new JEditorPane("text/html", "");
-        guideDisplayArea.setEditable(false);
-        guideDisplayArea.setBackground(CARD_BG);
-        guideScrollPane = new JScrollPane(guideDisplayArea);
-        guideScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
-        guideScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        guideScrollPane.setBorder(new LineBorder(POINT_PURPLE, 2));
-        guideScrollPane.setPreferredSize(new Dimension(0, 110));
-
-        questionPanel.add(questionLabel, BorderLayout.NORTH);
-        questionPanel.add(questionImageLabel, BorderLayout.CENTER);
-        questionPanel.add(guideScrollPane, BorderLayout.SOUTH);
-        topContainer.add(questionPanel, BorderLayout.CENTER);
-        add(topContainer, BorderLayout.NORTH);
-
-        JPanel centerPanel = new JPanel(new GridBagLayout());
-        centerPanel.setOpaque(false);
-        quizGrid = new JPanel(new GridLayout(2, 2, 20, 20)); 
-        quizGrid.setOpaque(false);
-        centerPanel.add(quizGrid);
-        add(centerPanel, BorderLayout.CENTER);
-
-        JPanel bottomPanel = new JPanel(new GridBagLayout());
-        bottomPanel.setOpaque(false);
-        bottomPanel.setPreferredSize(new Dimension(0, 100));
-        
+        JPanel mainContent = new JPanel(new GridBagLayout());
+        mainContent.setOpaque(false);
+        mainContent.setBorder(new EmptyBorder(10, 30, 10, 30));
         GridBagConstraints gbc = new GridBagConstraints();
-        messageLabel = new JLabel(" ", SwingConstants.CENTER);
-        messageLabel.setFont(new Font("맑은 고딕", Font.BOLD, 26));
+        gbc.fill = GridBagConstraints.BOTH; gbc.weightx = 1.0; gbc.gridx = 0;
         
-        nextButton = new JButton("다음 문제 >");
-        styleButton(nextButton, 16);
+        questionLabel = new JLabel(" ", SwingConstants.CENTER);
+        questionLabel.setFont(new Font("맑은 고딕", Font.BOLD, 26));
+        questionLabel.setForeground(Color.WHITE);
+        gbc.gridy = 0; gbc.insets = new Insets(10, 0, 10, 0);
+        mainContent.add(questionLabel, gbc);
+        
+        displayPanel = new JPanel(new CardLayout());
+        displayPanel.setOpaque(false);
+        displayPanel.setPreferredSize(new Dimension(700, 200));
+        
+        guideTextArea = new JTextArea();
+        guideTextArea.setFont(new Font("맑은 고딕", Font.BOLD, 20));
+        guideTextArea.setForeground(Color.WHITE);
+        guideTextArea.setBackground(new Color(40, 40, 70));
+        guideTextArea.setLineWrap(true);
+        guideTextArea.setWrapStyleWord(true);
+        guideTextArea.setEditable(false);
+        guideTextArea.setBorder(new EmptyBorder(25, 25, 25, 25));
+        
+        guideScrollPane = new JScrollPane(guideTextArea);
+        guideScrollPane.setBorder(new LineBorder(POINT_PINK, 2, true));
+        displayPanel.add(guideScrollPane, "TEXT");
+        
+        JPanel imgContainer = new JPanel(new GridBagLayout());
+        imgContainer.setOpaque(false);
+        imageQuestionLabel = new JLabel();
+        itemNameLabel = new JLabel();
+        itemNameLabel.setFont(FONT_BOLD_MEDIUM);
+        itemNameLabel.setForeground(POINT_PINK);
+        GridBagConstraints imgGbc = new GridBagConstraints();
+        imgGbc.gridy=0; imgContainer.add(imageQuestionLabel, imgGbc);
+        imgGbc.gridy=1; imgGbc.insets=new Insets(15,0,0,0); imgContainer.add(itemNameLabel, imgGbc);
+        displayPanel.add(imgContainer, "IMAGE");
+
+        gbc.gridy = 1; gbc.weighty = 0.3;
+        mainContent.add(displayPanel, gbc);
+        
+        quizGrid = new JPanel(new GridLayout(2, 2, 25, 25));
+        quizGrid.setOpaque(false);
+        gbc.gridy = 2; gbc.weighty = 0.6; gbc.insets = new Insets(25, 0, 25, 0);
+        mainContent.add(quizGrid, gbc);
+        
+        messageLabel = new JLabel(" ", SwingConstants.CENTER);
+        messageLabel.setFont(FONT_BOLD_MEDIUM);
+        gbc.gridy = 3; gbc.weighty = 0.1;
+        mainContent.add(messageLabel, gbc);
+        
+        add(mainContent, BorderLayout.CENTER);
+        
+        nextButton = new JButton("다음 문제로 ➔");
+        styleButton(nextButton, 18, POINT_PINK);
         nextButton.setVisible(false);
-        nextButton.addActionListener(e -> {
-            currentQuizIndex++;
-            showNextQuiz();
-        });
-
-        gbc.gridx = 1; gbc.weightx = 1.0; gbc.anchor = GridBagConstraints.CENTER;
-        bottomPanel.add(messageLabel, gbc);
-        gbc.gridx = 2; gbc.weightx = 0; gbc.anchor = GridBagConstraints.EAST;
-        gbc.insets = new Insets(0, 0, 0, 20);
-        bottomPanel.add(nextButton, gbc);
-        gbc.gridx = 0; gbc.weightx = 0;
-        bottomPanel.add(Box.createHorizontalStrut(100), gbc);
-
-        add(bottomPanel, BorderLayout.SOUTH);
+        nextButton.addActionListener(e -> { currentQuizIndex++; showNextQuiz(); });
+        
+        JPanel southPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        southPanel.setOpaque(false); southPanel.setBorder(new EmptyBorder(0,0,20,30));
+        southPanel.add(nextButton);
+        add(southPanel, BorderLayout.SOUTH);
+        
         revalidate(); repaint();
     }
 
     private void showNextQuiz() {
-        if (currentQuizIndex < quizList.size()) {
-            answerSubmitted = false;
-            nextButton.setVisible(false);
-            messageLabel.setText(" ");
+        if (currentQuizIndex < 5) {
+            answerSubmitted = false; nextButton.setVisible(false); messageLabel.setText(" ");
             progressBar.setValue(currentQuizIndex + 1);
             quizGrid.removeAll();
-
             Quiz q = quizList.get(currentQuizIndex);
-            questionLabel.setText("Q" + (currentQuizIndex + 1) + ". " + q.title);
+            questionLabel.setText("Q " + (currentQuizIndex + 1) + ". 아래 정보에 해당하는 정답을 고르세요.");
             
+            CardLayout cl = (CardLayout) displayPanel.getLayout();
             if (q.type == Quiz.QuizType.GUIDE_TO_IMAGE) {
-                questionImageLabel.setIcon(loadImage(q.mainImg, 140));
-                questionImageLabel.setVisible(true);
-                guideScrollPane.setVisible(false);
+                guideTextArea.setText(q.guideContent);
+                guideTextArea.setCaretPosition(0);
+                cl.show(displayPanel, "TEXT");
             } else {
-                guideScrollPane.setVisible(true);
-                questionImageLabel.setVisible(false);
+                imageQuestionLabel.setIcon(loadImage(q.itemImgPath, 130));
+                itemNameLabel.setText(q.itemName);
+                cl.show(displayPanel, "IMAGE");
             }
-
-            guideDisplayArea.setText("<html><body style='background-color:#231E46; color:#00FFF0; font-family:맑은 고딕; padding:10px; margin:0;'>" +
-                                     "<div style='text-align:center; font-size:16px; line-height:1.4;'>"+ q.guideSnippet + "</div></body></html>");
-
+            
             for (QuizOption opt : q.options) {
-                QuizOptionCard card = new QuizOptionCard(opt, q.optionUIStyle);
+                QuizOptionCard card = new QuizOptionCard(opt, q.type);
                 card.addMouseListener(new MouseAdapter() {
-                    @Override
-                    public void mouseClicked(MouseEvent e) { if (!answerSubmitted) handleAnswer(card, opt, q); }
-                    @Override
-                    public void mouseEntered(MouseEvent e) { if (!answerSubmitted) card.setHover(true); }
-                    @Override
-                    public void mouseExited(MouseEvent e) { if (!answerSubmitted) card.setHover(false); }
+                    @Override public void mouseClicked(MouseEvent e) { if(!answerSubmitted) handleAnswer(card, opt, q); }
                 });
                 quizGrid.add(card);
             }
-            quizGrid.revalidate(); 
-            quizGrid.repaint();
+            revalidate(); repaint();
         } else {
             finishQuiz();
         }
     }
 
-    private void handleAnswer(QuizOptionCard card, QuizOption opt, Quiz currentQuiz) {
+    private void handleAnswer(QuizOptionCard card, QuizOption opt, Quiz q) {
         answerSubmitted = true;
+        QuizOption correctOption = q.options.stream().filter(o -> o.isCorrect).findFirst().orElse(null);
+        String correctText = (q.type == Quiz.QuizType.IMAGE_TO_CATEGORY) ? correctOption.category : correctOption.itemName;
+        
         if (opt.isCorrect) {
             correctCount++;
-            messageLabel.setForeground(POINT_CYAN);
-            messageLabel.setText("✔ 정답입니다!");
+            messageLabel.setForeground(POINT_CYAN); messageLabel.setText("정답입니다! 참 잘했어요. 👍");
             card.setResult(true);
         } else {
-            messageLabel.setForeground(POINT_RED);
-            messageLabel.setText("✘ 오답입니다.");
+            messageLabel.setForeground(POINT_RED); messageLabel.setText("아쉬워요! 정답은 '" + correctText + "'입니다.");
             card.setResult(false);
-          
-            for (Component c : quizGrid.getComponents()) {
-                if (c instanceof QuizOptionCard && ((QuizOptionCard) c).option.isCorrect) ((QuizOptionCard) c).setResult(true);
-            }
-            String correctAnswer = currentQuiz.options.stream().filter(o -> o.isCorrect).findFirst().get().text;
-            wrongAnswerList.add(new WrongData("Q" + (currentQuizIndex+1) + " " + currentQuiz.title, opt.text, correctAnswer));
+            try {
+                logDAO.insertWrongAnswer(currentUser.getUserId(), 
+                                        (q.type == Quiz.QuizType.GUIDE_TO_IMAGE ? q.guideContent : q.itemName), 
+                                        (q.type == Quiz.QuizType.GUIDE_TO_IMAGE ? opt.itemName : opt.category), 
+                                        correctText);
+            } catch (SQLException e) { e.printStackTrace(); }
         }
         nextButton.setVisible(true);
     }
 
     private void finishQuiz() {
-        removeAll();
-        showLoadingScreen(); 
-
-        SwingWorker<Integer, Void> saver = new SwingWorker<>() {
-            @Override
-            protected Integer doInBackground() throws Exception {
-                int score = correctCount * 20;
-                if (currentUser != null) {
-                    logDAO.insertQuizReward(currentUser.getUserId(), "퀴즈 보상", score);
-                    for (WrongData data : wrongAnswerList) {
-                        logDAO.insertWrongAnswer(currentUser.getUserId(), data.question, data.selected, data.correct);
-                    }
+        try {
+            if (currentUser != null) {
+                int earnedPoints = 0;
+                String rank = "";
+                switch (correctCount) {
+                    case 5: earnedPoints = 50; rank = "완벽해요! (SSS)"; break;
+                    case 4: earnedPoints = 30; rank = "훌륭해요! (A)"; break;
+                    case 3: earnedPoints = 20; rank = "좋아요! (B)"; break;
+                    default: earnedPoints = 0; rank = "좀 더 노력해봐요! (C)"; break;
                 }
-                return score;
+
+                logDAO.insertQuizReward(currentUser.getUserId(), earnedPoints);
+                if (rankUpdateCallback != null) rankUpdateCallback.run();
+                
+                String resultMsg = String.format("퀴즈 결과: %s\n\n맞힌 개수: %d / 5\n획득 포인트: %d P", rank, correctCount, earnedPoints);
+                JOptionPane.showMessageDialog(this, resultMsg, "미션 완료", JOptionPane.INFORMATION_MESSAGE);
+
+                this.quizAlreadyTaken = true;
+                initUI();
             }
-
-            @Override
-            protected void done() {
-                try {
-                    int score = get();
-                    displayResult(score);
-                    if (rankUpdateCallback != null) rankUpdateCallback.run();
-                    quizAlreadyTaken = true;
-                } catch (Exception e) {
-                    JOptionPane.showMessageDialog(QuizPanel.this, "결과 저장 중 오류 발생");
-                    initUI();
-                }
-            }
-        };
-        saver.execute();
-    }
-
-    private void displayResult(int score) {
-        removeAll();
-        JPanel resPanel = new JPanel();
-        resPanel.setLayout(new BoxLayout(resPanel, BoxLayout.Y_AXIS));
-        resPanel.setOpaque(false);
-
-        JLabel scoreLbl = new JLabel("최종 점수: " + score + " P", SwingConstants.CENTER);
-        scoreLbl.setFont(new Font("맑은 고딕", Font.BOLD, 48));
-        scoreLbl.setForeground(POINT_CYAN);
-        scoreLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        resPanel.add(Box.createVerticalStrut(80));
-        resPanel.add(scoreLbl);
-        resPanel.add(Box.createVerticalStrut(40));
-
-        if (!wrongAnswerList.isEmpty()) {
-            JButton noteBtn = new JButton("오답 노트 확인하기");
-            styleButton(noteBtn, 18);
-            noteBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-            noteBtn.addActionListener(e -> showWrongNotePopup());
-            resPanel.add(noteBtn);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            initUI();
         }
-
-        add(resPanel, BorderLayout.CENTER);
-        JButton homeBtn = new JButton("완료");
-        styleButton(homeBtn, 18);
-        homeBtn.addActionListener(e -> initUI());
-        add(homeBtn, BorderLayout.SOUTH);
-        
-        revalidate(); repaint();
     }
 
     private void showWrongNotePopup() {
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "오늘의 오답 노트", true);
-        dialog.setLayout(new BorderLayout());
-        dialog.getContentPane().setBackground(BG_DARK);
-
-        JPanel list = new JPanel();
-        list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
-        list.setBackground(BG_DARK);
-        list.setBorder(new EmptyBorder(20, 20, 20, 20));
-
-        for (WrongData d : wrongAnswerList) {
-            JPanel item = new JPanel(new GridLayout(3, 1, 5, 5));
-            item.setBackground(CARD_BG);
-            item.setBorder(BorderFactory.createCompoundBorder(new LineBorder(POINT_PURPLE), new EmptyBorder(10, 10, 10, 10)));
-            JLabel q = new JLabel("문제: " + d.question); q.setForeground(POINT_CYAN);
-            JLabel s = new JLabel("선택: " + d.selected); s.setForeground(POINT_RED);
-            JLabel c = new JLabel("정답: " + d.correct); c.setForeground(Color.GREEN);
-            item.add(q); item.add(s); item.add(c);
-            list.add(item);
-            list.add(Box.createVerticalStrut(15));
+        try {
+            List<WrongData> list = logDAO.getWrongAnswersToday(currentUser.getUserId());
+            if (list == null || list.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "오늘 틀린 문제가 없습니다. 완벽해요! ✨");
+                return;
+            }
+            JDialog dialog = new JDialog((Frame)null, "오늘의 오답 노트", true);
+            dialog.getContentPane().setBackground(BG_DARK);
+            
+            JPanel content = new JPanel(); 
+            content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+            content.setBackground(BG_DARK); 
+            content.setBorder(new EmptyBorder(20,20,20,20));
+            
+            for (WrongData d : list) {
+                JPanel card = new JPanel(new GridLayout(0, 1, 5, 5));
+                card.setBackground(BG_CARD);
+                card.setBorder(BorderFactory.createCompoundBorder(
+                    new LineBorder(POINT_PINK, 1, true), 
+                    new EmptyBorder(15,15,15,15))
+                );
+                
+                String qText = d.question.length() > 60 ? d.question.substring(0, 57) + "..." : d.question;
+                JLabel q = new JLabel("질문: " + qText); q.setForeground(Color.WHITE);
+                JLabel s = new JLabel("내가 고른 답: " + d.selected); s.setForeground(POINT_RED);
+                JLabel c = new JLabel("올바른 정답: " + d.correct); c.setForeground(POINT_CYAN);
+                c.setFont(new Font("맑은 고딕", Font.BOLD, 14));
+                
+                card.add(q); card.add(s); card.add(c);
+                content.add(card); content.add(Box.createVerticalStrut(15));
+            }
+            
+            JScrollPane scroll = new JScrollPane(content);
+            scroll.setBorder(null);
+            scroll.getVerticalScrollBar().setUnitIncrement(16);
+            scroll.getViewport().setBackground(BG_DARK);
+            
+            dialog.add(scroll);
+            dialog.setSize(550, 600);
+            dialog.setLocationRelativeTo(this);
+            dialog.setVisible(true);
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
-
-        JScrollPane scroll = new JScrollPane(list);
-        scroll.setBorder(null);
-        dialog.add(scroll, BorderLayout.CENTER);
-        
-        JButton close = new JButton("닫기");
-        styleButton(close, 14);
-        close.addActionListener(e -> dialog.dispose());
-        dialog.add(close, BorderLayout.SOUTH);
-
-        dialog.setSize(500, 600);
-        dialog.setLocationRelativeTo(this);
-        dialog.setVisible(true);
     }
 
     private ImageIcon loadImage(String path, int size) {
         try {
             String fullPath = System.getProperty("user.dir") + "/src/main/webapp/" + path;
             ImageIcon icon = new ImageIcon(fullPath);
-            if (icon.getImageLoadStatus() != MediaTracker.COMPLETE || icon.getIconWidth() <= 0) {
-                return createDefaultIcon(size);
-            }
-            Image img = icon.getImage().getScaledInstance(size, size, Image.SCALE_SMOOTH);
-            return new ImageIcon(img);
-        } catch (Exception e) { 
-            return createDefaultIcon(size); 
+            if (icon.getIconWidth() <= 0) return null;
+            return new ImageIcon(icon.getImage().getScaledInstance(size, size, Image.SCALE_SMOOTH));
+        } catch (Exception e) {
+            return null;
         }
     }
 
-    private ImageIcon createDefaultIcon(int size) {
-        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(size, size, java.awt.image.BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g2 = img.createGraphics();
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2.setColor(CARD_BG); g2.fillRoundRect(0, 0, size, size, 20, 20);
-        g2.setColor(POINT_PURPLE); g2.drawRoundRect(2, 2, size-4, size-4, 20, 20);
-        g2.setFont(new Font("맑은 고딕", Font.BOLD, 14));
-        g2.drawString("No Image", size/4, size/2);
-        g2.dispose();
-        return new ImageIcon(img);
-    }
-
-    private void styleButton(JButton btn, int fontSize) {
-        btn.setBackground(POINT_PURPLE);
+    private void styleButton(JButton btn, int size, Color color) {
+        btn.setBackground(color);
         btn.setForeground(Color.WHITE);
-        btn.setFont(new Font("맑은 고딕", Font.BOLD, fontSize));
-        btn.setFocusPainted(false);
-        btn.setBorder(new EmptyBorder(12, 35, 12, 35));
+        btn.setFont(new Font("맑은 고딕", Font.BOLD, size));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setFocusPainted(false);
+        btn.setBorder(BorderFactory.createCompoundBorder(
+            new LineBorder(color.brighter(), 1),
+            new EmptyBorder(10, 25, 10, 25)
+        ));
+        
         btn.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { btn.setBackground(POINT_PURPLE.brighter()); }
-            public void mouseExited(MouseEvent e) { btn.setBackground(POINT_PURPLE); }
+            @Override public void mouseEntered(MouseEvent e) { btn.setBackground(color.brighter()); }
+            @Override public void mouseExited(MouseEvent e) { btn.setBackground(color); }
         });
     }
 
-    private static class Quiz {
+    public static class Quiz {
         enum QuizType { IMAGE_TO_CATEGORY, GUIDE_TO_IMAGE }
-        QuizType type; String title, guideSnippet, mainImg; List<QuizOption> options; int optionUIStyle;
-        Quiz(QuizType t, String title, String g, String i, List<QuizOption> o, int s) {
-            this.type = t; this.title = title; this.guideSnippet = g; this.mainImg = i; this.options = o; this.optionUIStyle = s;
+        QuizType type; String guideContent, itemImgPath, itemName; List<QuizOption> options;
+        Quiz(QuizType t, String g, String i, String n, List<QuizOption> o) {
+            this.type=t; this.guideContent=g; this.itemImgPath=i; this.itemName=n; this.options=o;
         }
     }
 
-    private static class QuizOption {
-        String text, imgPath; boolean isCorrect;
-        QuizOption(String t, String p, boolean c) { this.text = t; this.imgPath = p; this.isCorrect = c; }
+    public static class QuizOption {
+        String category, itemName, itemImgPath; boolean isCorrect;
+        QuizOption(String c, String n, String i, boolean cor) {
+            this.category=c; this.itemName=n; this.itemImgPath=i; this.isCorrect=cor;
+        }
+    }
+
+    private class QuizOptionCard extends JPanel {
+        QuizOptionCard(QuizOption opt, Quiz.QuizType type) {
+            setLayout(new BorderLayout());
+            setBackground(BG_CARD);
+            setBorder(new LineBorder(new Color(100, 100, 150), 2, true));
+            setCursor(new Cursor(Cursor.HAND_CURSOR));
+            
+            if (type == Quiz.QuizType.IMAGE_TO_CATEGORY) {
+                JLabel l = new JLabel(opt.category, SwingConstants.CENTER);
+                l.setFont(new Font("맑은 고딕", Font.BOLD, 22));
+                l.setForeground(Color.WHITE);
+                add(l, BorderLayout.CENTER);
+            } else {
+                ImageIcon icon = loadImage(opt.itemImgPath, 100);
+                JLabel img = (icon != null) ? new JLabel(icon) : new JLabel("이미지 없음", SwingConstants.CENTER);
+                if(icon == null) img.setForeground(Color.GRAY);
+                
+                JLabel name = new JLabel(opt.itemName, SwingConstants.CENTER);
+                name.setFont(new Font("맑은 고딕", Font.BOLD, 16));
+                name.setForeground(Color.WHITE);
+                name.setBorder(new EmptyBorder(5,0,10,0));
+                
+                add(img, BorderLayout.CENTER);
+                add(name, BorderLayout.SOUTH);
+            }
+
+            addMouseListener(new MouseAdapter() {
+                @Override public void mouseEntered(MouseEvent e) { if(!answerSubmitted) setBorder(new LineBorder(POINT_CYAN, 2, true)); }
+                @Override public void mouseExited(MouseEvent e) { if(!answerSubmitted) setBorder(new LineBorder(new Color(100, 100, 150), 2, true)); }
+            });
+        }
+
+        void setResult(boolean isCorrect) {
+            setBackground(isCorrect ? new Color(0, 80, 80) : new Color(80, 0, 0));
+            setBorder(new LineBorder(isCorrect ? POINT_CYAN : POINT_RED, 4, true));
+        }
     }
 
     public static class WrongData {
         public String question, selected, correct;
-        public WrongData(String q, String s, String c) { this.question = q; this.selected = s; this.correct = c; }
-    }
-
-    private class QuizOptionCard extends JPanel {
-        QuizOption option;
-        QuizOptionCard(QuizOption opt, int style) {
-            this.option = opt;
-            setLayout(new BorderLayout());
-            setBackground(CARD_BG);
-            setBorder(new LineBorder(POINT_PURPLE, 2));
-            setPreferredSize(new Dimension(300, 130));
-            if (style == 1) {
-                JLabel imgLabel = new JLabel(loadImage(opt.imgPath, 90));
-                imgLabel.setHorizontalAlignment(SwingConstants.CENTER);
-                add(imgLabel, BorderLayout.CENTER);
-            } else {
-                JLabel txtLabel = new JLabel("<html><center>" + opt.text + "</center></html>", SwingConstants.CENTER);
-                txtLabel.setForeground(TEXT_LIGHT);
-                txtLabel.setFont(new Font("맑은 고딕", Font.BOLD, 20));
-                add(txtLabel, BorderLayout.CENTER);
-            }
-            setCursor(new Cursor(Cursor.HAND_CURSOR));
-        }
-        void setHover(boolean hover) {
-            setBackground(hover ? new Color(50, 45, 90) : CARD_BG);
-            setBorder(new LineBorder(hover ? POINT_CYAN : POINT_PURPLE, 2));
-        }
-        void setResult(boolean correct) {
-            setBackground(correct ? new Color(0, 120, 80) : new Color(150, 0, 0));
-            setBorder(new LineBorder(correct ? Color.GREEN : Color.RED, 3));
+        public WrongData(String q, String s, String c) {
+            this.question = q; this.selected = s; this.correct = c;
         }
     }
 }
