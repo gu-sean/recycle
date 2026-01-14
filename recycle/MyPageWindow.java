@@ -23,6 +23,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -42,7 +44,7 @@ public class MyPageWindow extends JDialog {
     private static final String KOREAN_FONT = "Malgun Gothic";
     private static final Font FONT_TITLE = new Font(KOREAN_FONT, Font.BOLD, 17);
     private static final Font FONT_NORMAL = new Font(KOREAN_FONT, Font.PLAIN, 13);
-    private static final String IMG_PATH = "src/Main/webapp/images/rank/";
+    private static final String IMG_PATH = "src/main/webapp/images/rank/";
 
     public MyPageWindow(Frame owner, String userId) {
         super(owner, "마이페이지", true);
@@ -58,41 +60,60 @@ public class MyPageWindow extends JDialog {
         mainPanel.setBorder(new EmptyBorder(25, 25, 25, 25)); 
         mainPanel.setBackground(BG_DARK);
 
+    
         loadAndBuildUI(mainPanel);
 
         JScrollPane scrollPane = new JScrollPane(mainPanel);
         scrollPane.setBorder(null); 
         scrollPane.setViewportBorder(null);
         scrollPane.getViewport().setBackground(BG_DARK);
-        scrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(0, 0)); 
+ 
+        scrollPane.getVerticalScrollBar().setUI(new CustomScrollBarUI());
+        scrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(6, 0));
 
         add(scrollPane, BorderLayout.CENTER);
+        
+    
+        revalidate();
+        repaint();
     }
 
     private void loadAndBuildUI(JPanel mainPanel) {
+        UserDTO user = null;
+        List<PointLogDTO> logs = new ArrayList<>();
+
+    
         try (Connection conn = RecycleDB.connect()) {
-            UserDTO user = userDAO.getUserById(userId);
-            List<PointLogDTO> logs = pointLogDAO.getPointLogs(conn, userId);
-            if (logs == null) logs = new ArrayList<>();
-
-            if (user != null) {
-                mainPanel.add(createSectionPanel("프로필", "PROFILE", createProfileContent(user)));
-                mainPanel.add(Box.createVerticalStrut(20));
-                mainPanel.add(createSectionPanel("통계", "STATS", createStatsAndBadgeContent(logs)));
-                mainPanel.add(Box.createVerticalStrut(20));
-                mainPanel.add(createSectionPanel("활동 내역", "LOGS", createLogContent(logs)));
+            user = userDAO.getUserById(userId);
+            try {
+                logs = pointLogDAO.getPointLogs(conn, userId);
+            } catch (Exception logEx) {
+                System.err.println("포인트 로그 로딩 중 컬럼명 오류 발생: " + logEx.getMessage());
+            
             }
-
-            mainPanel.add(Box.createVerticalStrut(25));
-            JButton btnClose = new JButton("돌아가기");
-            styleButton(btnClose, BG_CARD);
-            btnClose.setAlignmentX(Component.CENTER_ALIGNMENT);
-            btnClose.addActionListener(e -> dispose());
-            mainPanel.add(btnClose);
-
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        if (user != null) {
+            mainPanel.add(createSectionPanel("프로필", "PROFILE", createProfileContent(user)));
+            mainPanel.add(Box.createVerticalStrut(20));
+            mainPanel.add(createSectionPanel("통계", "STATS", createStatsAndBadgeContent(logs)));
+            mainPanel.add(Box.createVerticalStrut(20));
+            mainPanel.add(createSectionPanel("활동 내역", "LOGS", createLogContent(logs)));
+        } else {
+            JLabel errorLbl = new JLabel("사용자 정보를 불러올 수 없습니다.");
+            errorLbl.setForeground(POINT_RED);
+            errorLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
+            mainPanel.add(errorLbl);
+        }
+
+        mainPanel.add(Box.createVerticalStrut(25));
+        JButton btnClose = new JButton("돌아가기");
+        styleButton(btnClose, BG_CARD);
+        btnClose.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btnClose.addActionListener(e -> dispose());
+        mainPanel.add(btnClose);
     }
 
     private JPanel createSectionPanel(String kor, String eng, Component content) {
@@ -129,12 +150,12 @@ public class MyPageWindow extends JDialog {
         p.setBorder(new EmptyBorder(20, 20, 20, 20));
 
         int pts = user.getBalancePoints();
-        String rankTitle, fileName;
+        String fileName;
         int nextGoal;
-        if (pts >= 10000) { rankTitle = "울창한 숲 등급"; fileName = "forest.png"; nextGoal = 20000; }
-        else if (pts >= 5000) { rankTitle = "튼튼한 나무 등급"; fileName = "tree.png"; nextGoal = 10000; }
-        else if (pts >= 1000) { rankTitle = "파릇한 새싹 등급"; fileName = "sprout.png"; nextGoal = 5000; }
-        else { rankTitle = "작은 씨앗 등급"; fileName = "seed.png"; nextGoal = 1000; }
+        if (pts >= 10000) { fileName = "forest.png"; nextGoal = 20000; }
+        else if (pts >= 5000) { fileName = "tree.png"; nextGoal = 10000; }
+        else if (pts >= 1000) { fileName = "sprout.png"; nextGoal = 5000; }
+        else { fileName = "seed.png"; nextGoal = 1000; }
 
         p.add(new JLabel(getScaledIcon(IMG_PATH + fileName, 85, 85)), BorderLayout.WEST);
 
@@ -167,7 +188,7 @@ public class MyPageWindow extends JDialog {
         progressBar.setMaximumSize(new Dimension(180, 8));
         progressBar.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel nextGoalLbl = new JLabel("다음 등급까지 " + (nextGoal - pts) + "P 남음");
+        JLabel nextGoalLbl = new JLabel("다음 등급까지 " + Math.max(0, nextGoal - pts) + "P 남음");
         nextGoalLbl.setFont(new Font(KOREAN_FONT, Font.PLAIN, 11));
         nextGoalLbl.setForeground(TEXT_SILVER);
 
@@ -181,6 +202,36 @@ public class MyPageWindow extends JDialog {
 
         p.add(infoPanel, BorderLayout.CENTER);
         return p;
+    }
+
+    private double calculateDetailedCO2(List<PointLogDTO> logs) {
+        double totalCO2 = 0.0;
+        double weightPlastic = 0.15, weightCan = 0.20, weightPaper = 0.07, weightGlass = 0.10, weightDefault = 0.05;
+
+        for (PointLogDTO log : logs) {
+            String detail = log.getDetail();
+            if (detail == null || !detail.contains("분리수거")) continue;
+
+            Pattern pattern = Pattern.compile("([가-힣]+)[^\\d]*(\\d+)");
+            Matcher matcher = pattern.matcher(detail);
+
+            boolean found = false;
+            while (matcher.find()) {
+                String item = matcher.group(1);
+                int count = Integer.parseInt(matcher.group(2));
+                found = true;
+
+                if (item.contains("플라스틱")) totalCO2 += count * weightPlastic;
+                else if (item.contains("캔")) totalCO2 += count * weightCan;
+                else if (item.contains("종이") || item.contains("박스")) totalCO2 += count * weightPaper;
+                else if (item.contains("유리")) totalCO2 += count * weightGlass;
+                else totalCO2 += count * weightDefault;
+            }
+            if (!found && detail.contains("분리수거")) {
+                totalCO2 += weightDefault;
+            }
+        }
+        return totalCO2;
     }
 
     private JPanel createStatsAndBadgeContent(List<PointLogDTO> logs) {
@@ -201,22 +252,31 @@ public class MyPageWindow extends JDialog {
         statsCard.setOpaque(false);
         statsCard.setBorder(new EmptyBorder(20, 15, 20, 15));
 
-        List<PointLogDTO> rLogs = logs.stream().filter(l -> l.getDetail() != null && l.getDetail().contains("분리수거")).collect(Collectors.toList());
-        Set<String> uniqueDates = rLogs.stream().map(l -> l.getFormattedTimestamp().substring(0, 10)).collect(Collectors.toSet());
+        List<PointLogDTO> rLogs = logs.stream()
+                .filter(l -> l.getDetail() != null && l.getDetail().contains("분리수거"))
+                .collect(Collectors.toList());
+        
+        Set<String> uniqueDates = rLogs.stream()
+                .filter(l -> l.getFormattedTimestamp() != null && l.getFormattedTimestamp().length() >= 10)
+                .map(l -> l.getFormattedTimestamp().substring(0, 10))
+                .collect(Collectors.toSet());
+        
         int streak = calculateStreak(uniqueDates);
-        double co2 = uniqueDates.size() * 0.42; 
+        double co2 = calculateDetailedCO2(logs); 
+        
         long varietyCount = rLogs.stream()
                 .flatMap(l -> Stream.of(l.getDetail().contains(":") ? l.getDetail().split(":")[1].split(",") : new String[]{"기타"}))
-                .map(item -> item.trim().split(" \\(")[0]).distinct().count();
+                .map(item -> item.trim().split(" \\(")[0].split("\\(")[0].trim())
+                .distinct().count();
 
         statsCard.add(createStatItem("연속 참여", streak + "일"));
-        statsCard.add(createStatItem("CO2 절감", String.format("%.1fkg", co2)));
+        statsCard.add(createStatItem("CO2 절감", String.format("%.2fkg", co2))); 
         statsCard.add(createStatItem("품목 다양성", varietyCount + "종"));
 
         JPanel badgePanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 30, 0));
         badgePanel.setOpaque(false);
         badgePanel.add(createBadgeItem("성실왕", "badge_streak.png", streak >= 7));
-        badgePanel.add(createBadgeItem("지구 지킴이", "badge_co2.png", co2 >= 5.0));
+        badgePanel.add(createBadgeItem("지구 지킴이", "badge_co2.png", co2 >= 1.0)); 
         badgePanel.add(createBadgeItem("분리수거 박사", "badge_variety.png", varietyCount >= 5));
 
         container.add(statsCard);
@@ -274,13 +334,14 @@ public class MyPageWindow extends JDialog {
         
         for (PointLogDTO l : logs) {
             String amountStr = l.getFormattedAmount();
-         
-            if (!amountStr.startsWith("+") && !amountStr.startsWith("-") && !amountStr.equals("0")) {
+            if (amountStr != null && !amountStr.startsWith("+") && !amountStr.startsWith("-") && !amountStr.equals("0")) {
                 amountStr = "+" + amountStr;
             }
+            String dateStr = (l.getFormattedTimestamp() != null && l.getFormattedTimestamp().length() >= 10) 
+                             ? l.getFormattedTimestamp().substring(5, 10) : "??-??";
             
             model.addRow(new Object[]{
-                l.getFormattedTimestamp().substring(5, 10), l.getDetail(), amountStr
+                dateStr, l.getDetail(), amountStr
             });
         }
         
@@ -310,7 +371,6 @@ public class MyPageWindow extends JDialog {
         });
 
         TableColumnModel cm = table.getColumnModel();
-        
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(JLabel.CENTER);
         centerRenderer.setBackground(BG_CARD);
@@ -322,7 +382,7 @@ public class MyPageWindow extends JDialog {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object v, boolean isS, boolean hasF, int r, int c) {
                 JLabel lbl = (JLabel) super.getTableCellRendererComponent(t, v, isS, hasF, r, c);
-                lbl.setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 0)); // 여백 추가
+                lbl.setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 0)); 
                 lbl.setBackground(BG_CARD);
                 lbl.setForeground(Color.WHITE);
                 return lbl;
@@ -367,10 +427,8 @@ public class MyPageWindow extends JDialog {
             this.thumbColor = POINT_PURPLE;
             this.trackColor = BG_CARD;
         }
-        @Override
-        protected JButton createDecreaseButton(int orientation) { return createZeroButton(); }
-        @Override
-        protected JButton createIncreaseButton(int orientation) { return createZeroButton(); }
+        @Override protected JButton createDecreaseButton(int orientation) { return createZeroButton(); }
+        @Override protected JButton createIncreaseButton(int orientation) { return createZeroButton(); }
         private JButton createZeroButton() {
             JButton jb = new JButton();
             jb.setPreferredSize(new Dimension(0, 0));
@@ -383,11 +441,6 @@ public class MyPageWindow extends JDialog {
             g2.setColor(thumbColor);
             g2.fillRoundRect(thumbBounds.x, thumbBounds.y, thumbBounds.width, thumbBounds.height, 10, 10);
             g2.dispose();
-        }
-        @Override
-        protected void paintTrack(Graphics g, JComponent c, Rectangle trackBounds) {
-            g.setColor(trackColor);
-            g.fillRect(trackBounds.x, trackBounds.y, trackBounds.width, trackBounds.height);
         }
     }
 
@@ -408,10 +461,30 @@ public class MyPageWindow extends JDialog {
 
     private ImageIcon getScaledIcon(String path, int w, int h) {
         try {
-            File f = new File(path);
-            if (!f.exists()) return null;
-            return new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH));
-        } catch (Exception e) { return null; }
+            if (path == null || path.isEmpty()) return null;
+
+  
+            String cleanPath = path.replace("\\", "/");
+            
+            cleanPath = cleanPath.replaceAll("(?i)src/main/webapp/images/", "images/");
+            cleanPath = cleanPath.replaceAll("(?i)main/webapp/images/", "images/");
+            cleanPath = cleanPath.replaceAll("(?i)src/images/", "images/");
+
+            File f = new File(System.getProperty("user.dir"), cleanPath);
+
+            if (!f.exists()) {
+                f = new File("src/main/webapp/" + cleanPath);
+            }
+
+            if (f.exists()) {
+                return new ImageIcon(new ImageIcon(f.getAbsolutePath()).getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH));
+            } else {
+                System.out.println("❌ 최종 로드 실패 경로: " + f.getAbsolutePath());
+                return null;
+            }
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private int calculateStreak(Set<String> dates) {

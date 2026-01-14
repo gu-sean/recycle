@@ -14,8 +14,7 @@ import java.util.List;
 import db.DTO.UserDTO;
 import db.DAO.RecycleLogDAO;
 import db.DAO.GuideDAO;
-import db.DAO.GuideDAO.ItemDetail;
-
+import db.DTO.GuideDTO;
 
 public class QuizPanel extends JPanel {
 
@@ -52,16 +51,32 @@ public class QuizPanel extends JPanel {
         setLayout(new BorderLayout());
         setBackground(BG_DARK);
         
+   
         checkQuizStatusFromDB();
         initUI();
     }
 
+ 
+    @Override
+    public void setVisible(boolean aFlag) {
+        super.setVisible(aFlag);
+        if (aFlag) {
+            checkQuizStatusFromDB();
+            initUI();
+        }
+    }
+
+    /**
+     * DB에서 오늘 참여 여부를 실시간으로 가져옴
+     */
     private void checkQuizStatusFromDB() {
-        if (currentUser == null) return;
+        if (currentUser == null || currentUser.getUserId() == null) return;
         try {
             this.quizAlreadyTaken = logDAO.hasTakenQuizToday(currentUser.getUserId());
+            System.out.println("[QuizPanel] 참여 상태 동기화: " + quizAlreadyTaken);
         } catch (SQLException e) {
             this.quizAlreadyTaken = false;
+            e.printStackTrace();
         }
     }
 
@@ -111,8 +126,10 @@ public class QuizPanel extends JPanel {
         JButton b = new JButton("미션 시작하기");
         styleButton(b, 28, POINT_CYAN);
         b.addActionListener(e -> {
+      
             checkQuizStatusFromDB();
             if(quizAlreadyTaken) {
+                JOptionPane.showMessageDialog(this, "이미 오늘 퀴즈에 참여하셨습니다!");
                 initUI();
             } else {
                 startQuiz();
@@ -140,15 +157,19 @@ public class QuizPanel extends JPanel {
 
     private void prepareMixedQuiz() throws Exception {
         quizList = new ArrayList<>();
-        List<ItemDetail> allItems = GuideDAO.getAllItems();
+ 
+        List<GuideDTO> allItems = GuideDAO.getAllItems(); 
+        
         if (allItems == null || allItems.isEmpty()) return;
         Collections.shuffle(allItems);
         
         for (int i = 0; i < 5; i++) {
-            ItemDetail target = allItems.get(i % allItems.size());
+      
+            GuideDTO target = allItems.get(i % allItems.size());
             Quiz.QuizType type = (i % 2 == 0) ? Quiz.QuizType.IMAGE_TO_CATEGORY : Quiz.QuizType.GUIDE_TO_IMAGE;
             
-            String clean = target.disposalGuide.replaceAll("<[^>]*>", " ").replaceAll("&nbsp;", " ").replaceAll("\\s+", " ").trim();
+     
+            String clean = target.getContent().replaceAll("<[^>]*>", " ").replaceAll("&nbsp;", " ").replaceAll("\\s+", " ").trim();
             String summary = clean;
             int firstDot = clean.indexOf(".");
             if (firstDot != -1) {
@@ -157,17 +178,20 @@ public class QuizPanel extends JPanel {
             }
             
             List<QuizOption> options = new ArrayList<>();
-            options.add(new QuizOption(target.categoryName, target.itemName, target.itemImagePath, true));
+        
+            options.add(new QuizOption(target.getCategoryName(), target.getItemName(), target.getItemImagePath(), true));
             
-            List<ItemDetail> others = new ArrayList<>(allItems);
+      
+            List<GuideDTO> others = new ArrayList<>(allItems);
             others.remove(target);
             Collections.shuffle(others);
             for (int j = 0; j < 3; j++) {
-                ItemDetail o = others.get(j % others.size());
-                options.add(new QuizOption(o.categoryName, o.itemName, o.itemImagePath, false));
+                GuideDTO o = others.get(j % others.size());
+                options.add(new QuizOption(o.getCategoryName(), o.getItemName(), o.getItemImagePath(), false));
             }
             Collections.shuffle(options);
-            quizList.add(new Quiz(type, summary, target.itemImagePath, target.itemName, options));
+ 
+            quizList.add(new Quiz(type, summary, target.getItemImagePath(), target.getItemName(), options));
         }
     }
 
@@ -306,20 +330,21 @@ public class QuizPanel extends JPanel {
         try {
             if (currentUser != null) {
                 int earnedPoints = 0;
-                String rank = "";
+                String rankText = "";
                 switch (correctCount) {
-                    case 5: earnedPoints = 50; rank = "완벽해요! (SSS)"; break;
-                    case 4: earnedPoints = 30; rank = "훌륭해요! (A)"; break;
-                    case 3: earnedPoints = 20; rank = "좋아요! (B)"; break;
-                    default: earnedPoints = 0; rank = "좀 더 노력해봐요! (C)"; break;
+                    case 5: earnedPoints = 50; rankText = "완벽해요! (SSS)"; break;
+                    case 4: earnedPoints = 30; rankText = "훌륭해요! (A)"; break;
+                    case 3: earnedPoints = 20; rankText = "좋아요! (B)"; break;
+                    default: earnedPoints = 0; rankText = "좀 더 노력해봐요! (C)"; break;
                 }
 
                 logDAO.insertQuizReward(currentUser.getUserId(), earnedPoints);
                 if (rankUpdateCallback != null) rankUpdateCallback.run();
                 
-                String resultMsg = String.format("퀴즈 결과: %s\n\n맞힌 개수: %d / 5\n획득 포인트: %d P", rank, correctCount, earnedPoints);
+                String resultMsg = String.format("퀴즈 결과: %s\n\n맞힌 개수: %d / 5\n획득 포인트: %d P", rankText, correctCount, earnedPoints);
                 JOptionPane.showMessageDialog(this, resultMsg, "미션 완료", JOptionPane.INFORMATION_MESSAGE);
 
+     
                 this.quizAlreadyTaken = true;
                 initUI();
             }
@@ -404,6 +429,7 @@ public class QuizPanel extends JPanel {
         });
     }
 
+    // --- 내부 데이터 클래스 ---
     public static class Quiz {
         enum QuizType { IMAGE_TO_CATEGORY, GUIDE_TO_IMAGE }
         QuizType type; String guideContent, itemImgPath, itemName; List<QuizOption> options;

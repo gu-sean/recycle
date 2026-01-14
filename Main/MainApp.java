@@ -27,12 +27,12 @@ import recycle.AdminWindow;
 public class MainApp extends JFrame {
 
     private final UserDTO currentUser; 
-    private HomeDashboard homeDashboard;
+    private HomeDashboard homeDashboard; 
     
+    // --- 디자인 시스템 컬러 ---
     private static final Color BG_DARK = new Color(15, 12, 30);       
     private static final Color BG_TAB_AREA = new Color(20, 18, 45);   
     private static final Color POINT_CYAN = new Color(0, 255, 240);    
-    private static final Color POINT_PURPLE = new Color(130, 90, 255); 
     private static final Color TEXT_WHITE = new Color(240, 240, 250);  
     private static final Color TEXT_DIM = new Color(150, 150, 180);    
 
@@ -43,10 +43,8 @@ public class MainApp extends JFrame {
         setupFrame();
         
         add(createHeaderPanel(), BorderLayout.NORTH);
-        
         JTabbedPane tabbedPane = createTabbedPane();
         add(tabbedPane, BorderLayout.CENTER);
-
         add(createStatusBar(), BorderLayout.SOUTH);
 
         setVisible(true); 
@@ -108,19 +106,20 @@ public class MainApp extends JFrame {
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.setUI(new CustomTabbedUI());
         tabbedPane.setFont(new Font("맑은 고딕", Font.BOLD, 15));
+        
+  
+        tabbedPane.setForeground(Color.WHITE); 
+        
         tabbedPane.setBorder(new EmptyBorder(10, 15, 10, 15));
 
         try {
-        
             RankingWindow rankingPanel = new RankingWindow(currentUser.getUserId()); 
             
-           
             Runnable refreshCallback = () -> {
                 rankingPanel.refreshRanking(); 
                 if (homeDashboard != null) {
-                    homeDashboard.updateAllData();
+                    homeDashboard.updateAllData(); 
                 }
-                System.out.println("[알림] 모든 데이터가 실시간으로 동기화되었습니다.");
             };
 
             homeDashboard = new HomeDashboard(currentUser, refreshCallback);
@@ -136,7 +135,6 @@ public class MainApp extends JFrame {
                 tabbedPane.addTab(" 시스템 관리 ", new AdminWindow(refreshCallback));
             }
 
-           
             tabbedPane.addChangeListener(e -> {
                 if (tabbedPane.getSelectedIndex() == 0 && homeDashboard != null) {
                     homeDashboard.updateAllData();
@@ -150,7 +148,9 @@ public class MainApp extends JFrame {
         return tabbedPane;
     }
 
-    
+    /**
+     * 커스텀 탭 디자인 UI
+     */
     private class CustomTabbedUI extends BasicTabbedPaneUI {
         @Override
         protected void paintTabBackground(Graphics g, int tabPlacement, int tabIndex, int x, int y, int w, int h, boolean isSelected) {
@@ -163,6 +163,21 @@ public class MainApp extends JFrame {
                 g2.setColor(BG_DARK); g2.fillRect(x, y, w, h);
             }
         }
+
+  
+        @Override
+        protected void paintText(Graphics g, int tabPlacement, Font font, FontMetrics metrics, int tabIndex, String title, Rectangle textRect, boolean isSelected) {
+            g.setFont(font);
+            if (isSelected) {
+                g.setColor(POINT_CYAN); // 선택된 탭은 청록색
+            } else {
+                g.setColor(Color.WHITE); // 선택되지 않은 탭은 흰색
+            }
+            int x = textRect.x;
+            int y = textRect.y + metrics.getAscent();
+            g.drawString(title, x, y);
+        }
+
         @Override protected void paintContentBorder(Graphics g, int tabPlacement, int selectedIndex) {}
         @Override protected void paintTabBorder(Graphics g, int tabPlacement, int tabIndex, int x, int y, int w, int h, boolean isSelected) {}
     }
@@ -205,11 +220,10 @@ public class MainApp extends JFrame {
         System.exit(1);
     }
 
-  
     public static void main(String[] args) {
         initializeBackend();
         SwingUtilities.invokeLater(() -> {
-            new LoginPanel(); 
+            new LoginPanel();
         });
     }
 

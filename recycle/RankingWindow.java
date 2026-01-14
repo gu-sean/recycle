@@ -8,9 +8,7 @@ import java.awt.event.MouseEvent;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.ArrayList;
-
 import recycle.RankingManager.RankingEntry;
-
 
 public class RankingWindow extends JPanel {
 
@@ -21,7 +19,6 @@ public class RankingWindow extends JPanel {
 
     private static final Color BG_DARK = new Color(10, 10, 20);      
     private static final Color CARD_BG = new Color(25, 25, 45);      
-    private static final Color HOVER_BG = new Color(35, 35, 70);     
     private static final Color POINT_PURPLE = new Color(140, 80, 255); 
     private static final Color POINT_CYAN = new Color(0, 240, 255);     
     private static final Color TEXT_SILVER = new Color(180, 180, 210);
@@ -45,6 +42,7 @@ public class RankingWindow extends JPanel {
         setBackground(BG_DARK);
         setBorder(new EmptyBorder(40, 50, 40, 50));
 
+        // [1] 헤더 설정
         JPanel header = new JPanel(new GridLayout(2, 1, 0, 5));
         header.setOpaque(false);
         
@@ -60,6 +58,7 @@ public class RankingWindow extends JPanel {
         header.add(desc);
         add(header, BorderLayout.NORTH);
 
+        // [2] 리스트 영역
         rankListPanel = new JPanel();
         rankListPanel.setLayout(new BoxLayout(rankListPanel, BoxLayout.Y_AXIS));
         rankListPanel.setOpaque(false);
@@ -71,6 +70,7 @@ public class RankingWindow extends JPanel {
         scroll.getVerticalScrollBar().setPreferredSize(new Dimension(0, 0)); 
         add(scroll, BorderLayout.CENTER);
 
+        // [3] 하단 내 순위 요약 카드
         infoLabel = new JLabel("", SwingConstants.CENTER);
         infoLabel.setFont(new Font("Malgun Gothic", Font.BOLD, 17));
         infoLabel.setForeground(Color.WHITE);
@@ -80,7 +80,8 @@ public class RankingWindow extends JPanel {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                GradientPaint gp = new GradientPaint(0, 0, POINT_PURPLE, getWidth(), 0, new Color(100, 50, 200));
+
+                GradientPaint gp = new GradientPaint(0, 0, new Color(110, 60, 220), getWidth(), 0, new Color(80, 40, 180));
                 g2.setPaint(gp);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 25, 25);
                 g2.dispose();
@@ -102,7 +103,14 @@ public class RankingWindow extends JPanel {
         
         add(footerCard, BorderLayout.SOUTH);
 
-        loadRankingList();
+        refreshRanking();
+    }
+
+
+    public void refreshRanking() {
+        new Thread(() -> {
+            loadRankingList();
+        }).start();
     }
 
     private void openMyPage() {
@@ -110,25 +118,27 @@ public class RankingWindow extends JPanel {
         if (ancestor instanceof Frame) {
             MyPageWindow myPage = new MyPageWindow((Frame) ancestor, currentUserId);
             myPage.setVisible(true);
-            refreshRanking();
+            refreshRanking(); 
         }
     }
 
-    public void refreshRanking() {
-        loadRankingList();
-    }
-
-    public void loadRankingList() {
+    private synchronized void loadRankingList() {
         if (manager == null) return;
         try {
             List<RankingEntry> fullList = manager.getSortedRankingList();
             if (fullList == null) fullList = new ArrayList<>();
             
+            final List<RankingEntry> finalFullList = fullList;
             int limit = Math.min(fullList.size(), MAX_RANK_DISPLAY);
-            updateRankListUI(fullList.subList(0, limit));
-            updateMyRank(fullList); 
+            final List<RankingEntry> topList = new ArrayList<>(fullList.subList(0, limit));
+
+
+            SwingUtilities.invokeLater(() -> {
+                updateRankListUI(topList);
+                updateMyRank(finalFullList);
+            });
         } catch (SQLException e) {
-            infoLabel.setText("랭킹 정보를 불러올 수 없습니다.");
+            SwingUtilities.invokeLater(() -> infoLabel.setText("랭킹 정보를 불러올 수 없습니다."));
         }
     }
 
@@ -204,6 +214,11 @@ public class RankingWindow extends JPanel {
     public void updateMyRank(List<RankingEntry> rankingList) {
         if (manager == null || rankingList == null) return;
         String myInfoHtml = manager.getMyRankInfo(currentUserId, rankingList);
+        
+
+        if (myInfoHtml != null && myInfoHtml.contains("color:")) {
+            myInfoHtml = myInfoHtml.replaceAll("color:[^;]+;", "color:white;");
+        }
         
         infoLabel.setText(myInfoHtml);
     }

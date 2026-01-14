@@ -29,6 +29,7 @@ public class LoginPanel extends JFrame implements ActionListener {
     private Preferences prefs = Preferences.userRoot().node(this.getClass().getName());
     private static final String PREF_ID = "remembered_id";
 
+    // 테마 컬러 상수
     protected static final Color BG_DARK = new Color(15, 12, 30);
     protected static final Color BG_LIGHT = new Color(35, 30, 70);
     protected static final Color POINT_PURPLE = new Color(138, 43, 226);
@@ -43,7 +44,10 @@ public class LoginPanel extends JFrame implements ActionListener {
         setupFrame();
         initComponents();
         setupLoadingOverlay();
-        loadSavedId(); 
+        loadSavedId();
+        
+        // 엔터 키 입력 시 로그인 버튼 작동
+        getRootPane().setDefaultButton(loginButton);
         setVisible(true);
     }
 
@@ -53,7 +57,7 @@ public class LoginPanel extends JFrame implements ActionListener {
     }
 
     private void setupFrame() {
-        setTitle("에코 리사이클 로그인");
+        setTitle("EcoCycle 로그인");
         setSize(420, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -111,7 +115,6 @@ public class LoginPanel extends JFrame implements ActionListener {
 
         mainPanel.add(createLabel("사용자 계정 (ID)"));
         idField = createStyledTextField();
-        idField.addActionListener(e -> passwordField.requestFocusInWindow());
         mainPanel.add(idField);
         mainPanel.add(Box.createVerticalStrut(20));
 
@@ -121,7 +124,6 @@ public class LoginPanel extends JFrame implements ActionListener {
         pwWrapper.setMaximumSize(new Dimension(320, 50));
         
         passwordField = createStyledPasswordField();
-        passwordField.addActionListener(e -> handleLogin());
         
         JButton showPwBtn = new JButton("👁");
         showPwBtn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 16));
@@ -130,8 +132,8 @@ public class LoginPanel extends JFrame implements ActionListener {
         showPwBtn.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
         showPwBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         showPwBtn.addMouseListener(new MouseAdapter() {
-            public void mousePressed(MouseEvent e) { passwordField.setEchoChar((char)0); }
-            public void mouseReleased(MouseEvent e) { passwordField.setEchoChar('●'); }
+            @Override public void mousePressed(MouseEvent e) { passwordField.setEchoChar((char)0); }
+            @Override public void mouseReleased(MouseEvent e) { passwordField.setEchoChar('●'); }
         });
         
         pwWrapper.add(passwordField, BorderLayout.CENTER);
@@ -165,7 +167,7 @@ public class LoginPanel extends JFrame implements ActionListener {
         if (!savedId.isEmpty()) {
             idField.setText(savedId);
             rememberMe.setSelected(true);
-            passwordField.requestFocusInWindow();
+            SwingUtilities.invokeLater(() -> passwordField.requestFocusInWindow());
         }
     }
 
@@ -181,25 +183,52 @@ public class LoginPanel extends JFrame implements ActionListener {
 
     private void handleLogin() {
         if (isLoading) return;
+        
         String id = idField.getText().trim();
         String pw = new String(passwordField.getPassword());
-        if (id.isEmpty() || pw.isEmpty()) return;
+        
+        if (id.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "아이디를 입력해주세요.");
+            idField.requestFocus();
+            return;
+        }
+        if (pw.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "비밀번호를 입력해주세요.");
+            passwordField.requestFocus();
+            return;
+        }
 
         showLoading(true);
-        new Timer(800, e -> {
-            ((Timer)e.getSource()).stop();
+        
+        new Thread(() -> {
             try {
-                UserDTO user = userDAO.loginUser(id, pw);
-                showLoading(false);
-                if (user != null) {
-                    saveIdPreference(id); 
-                    new MainApp(user);
-                    dispose();
-                } else {
-                    JOptionPane.showMessageDialog(this, "아이디 또는 비밀번호를 확인해주세요.");
-                }
+                final UserDTO user = userDAO.loginUser(id, pw);
+                
+                Thread.sleep(600); 
+                
+     
+                SwingUtilities.invokeLater(() -> {
+                    showLoading(false);
+                    if (user != null) {
+                        saveIdPreference(id);
+                        new MainApp(user); 
+                        dispose();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "아이디 또는 비밀번호가 일치하지 않습니다.", "로그인 실패", JOptionPane.ERROR_MESSAGE);
+                        passwordField.setText("");
+                        passwordField.requestFocus();
+                    }
+                });
             } catch (SQLException ex) {
-                showLoading(false);
+                SwingUtilities.invokeLater(() -> {
+                    showLoading(false);
+                    JOptionPane.showMessageDialog(this, "DB 연결 오류: " + ex.getMessage(), "오류", JOptionPane.ERROR_MESSAGE);
+                });
+            } catch (Exception ex) {
+                SwingUtilities.invokeLater(() -> {
+                    showLoading(false);
+                    JOptionPane.showMessageDialog(this, "알 수 없는 오류가 발생했습니다.");
+                });
                 ex.printStackTrace();
             }
         }).start();
@@ -210,6 +239,9 @@ public class LoginPanel extends JFrame implements ActionListener {
         loadingOverlay.setVisible(show);
         if (show) loadingTimer.start();
         else loadingTimer.stop();
+        
+        loginButton.setEnabled(!show);
+        registerButton.setEnabled(!show);
     }
 
     protected JPanel createGradientPanel() {
@@ -269,6 +301,7 @@ public class LoginPanel extends JFrame implements ActionListener {
         f.setForeground(Color.WHITE);
         f.setCaretColor(POINT_CYAN);
         f.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15));
+        f.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
     }
 
     protected JButton createStyledButton(String text, Color bg, Color fg) {
@@ -276,7 +309,7 @@ public class LoginPanel extends JFrame implements ActionListener {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                float alpha = isEnabled() ? 1.0f : 0.4f; 
+                float alpha = isEnabled() ? 1.0f : 0.4f;
                 g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
                 g2.setColor(getModel().isRollover() && isEnabled() ? bg.brighter() : bg);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
@@ -311,6 +344,7 @@ public class LoginPanel extends JFrame implements ActionListener {
         else if (e.getSource() == registerButton) new RegisterWindow(userDAO, this);
     }
 
+    // --- 회원가입 윈도우 내부 클래스 ---
     class RegisterWindow extends JDialog {
         private JTextField nickF, idF;
         private JPasswordField pwF, pwConfirmF;
@@ -344,7 +378,6 @@ public class LoginPanel extends JFrame implements ActionListener {
 
             p.add(parent.createLabel("사용할 닉네임 (2~8자)"));
             nickF = parent.createStyledTextField();
-            nickF.addActionListener(e -> idF.requestFocusInWindow());
             p.add(nickF);
             nickMsg = createStatusLabel();
             p.add(nickMsg);
@@ -352,7 +385,6 @@ public class LoginPanel extends JFrame implements ActionListener {
 
             p.add(parent.createLabel("아이디 (5~12자 영문/숫자)"));
             idF = parent.createStyledTextField();
-            idF.addActionListener(e -> pwF.requestFocusInWindow());
             p.add(idF);
             idMsg = createStatusLabel();
             p.add(idMsg);
@@ -360,24 +392,23 @@ public class LoginPanel extends JFrame implements ActionListener {
 
             p.add(parent.createLabel("비밀번호 (8자 이상, 특수문자 포함)"));
             pwF = parent.createStyledPasswordField();
-            pwF.addActionListener(e -> pwConfirmF.requestFocusInWindow());
             p.add(pwF);
             p.add(Box.createVerticalStrut(10));
 
             p.add(parent.createLabel("비밀번호 확인"));
             pwConfirmF = parent.createStyledPasswordField();
-            pwConfirmF.addActionListener(e -> { if(joinB.isEnabled()) handleJoin(); });
             p.add(pwConfirmF);
             pwMsg = createStatusLabel();
             p.add(pwMsg);
             p.add(Box.createVerticalStrut(30));
 
             joinB = parent.createStyledButton("가입 완료", POINT_CYAN, BG_DARK);
-            joinB.setEnabled(false); 
+            joinB.setEnabled(false);
             p.add(joinB);
 
             setupRealtimeCheck();
             joinB.addActionListener(e -> handleJoin());
+            getRootPane().setDefaultButton(joinB);
 
             setVisible(true);
         }
@@ -393,7 +424,7 @@ public class LoginPanel extends JFrame implements ActionListener {
         private void setStatus(JLabel label, String text, boolean isOk) {
             label.setText(text);
             label.setForeground(isOk ? COLOR_OK : COLOR_ERR);
-            validateAll(); 
+            validateAll();
         }
 
         private void validateAll() {
@@ -407,11 +438,15 @@ public class LoginPanel extends JFrame implements ActionListener {
                     isNickOk = false;
                     setStatus(nickMsg, "2~8자 사이로 입력하세요.", false);
                 } else {
-                    try {
-                        boolean dup = dao.isExists("NICKNAME", val);
-                        isNickOk = !dup;
-                        setStatus(nickMsg, dup ? "이미 사용중인 닉네임입니다." : "사용 가능한 닉네임입니다.", !dup);
-                    } catch (SQLException ex) { ex.printStackTrace(); }
+                    new Thread(() -> {
+                        try {
+                            boolean dup = dao.isExists("NICKNAME", val);
+                            SwingUtilities.invokeLater(() -> {
+                                isNickOk = !dup;
+                                setStatus(nickMsg, dup ? "이미 사용중인 닉네임입니다." : "사용 가능한 닉네임입니다.", !dup);
+                            });
+                        } catch (SQLException ex) { ex.printStackTrace(); }
+                    }).start();
                 }
             }));
 
@@ -421,11 +456,15 @@ public class LoginPanel extends JFrame implements ActionListener {
                     isIdOk = false;
                     setStatus(idMsg, "5~12자 영문/숫자만 가능합니다.", false);
                 } else {
-                    try {
-                        boolean dup = dao.isExists("USER_ID", val);
-                        isIdOk = !dup;
-                        setStatus(idMsg, dup ? "이미 사용중인 아이디입니다." : "사용 가능한 아이디입니다.", !dup);
-                    } catch (SQLException ex) { ex.printStackTrace(); }
+                    new Thread(() -> {
+                        try {
+                            boolean dup = dao.isExists("USER_ID", val);
+                            SwingUtilities.invokeLater(() -> {
+                                isIdOk = !dup;
+                                setStatus(idMsg, dup ? "이미 사용중인 아이디입니다." : "사용 가능한 아이디입니다.", !dup);
+                            });
+                        } catch (SQLException ex) { ex.printStackTrace(); }
+                    }).start();
                 }
             }));
 
@@ -452,15 +491,23 @@ public class LoginPanel extends JFrame implements ActionListener {
 
         private void handleJoin() {
             String registeredId = idF.getText().trim();
-            try {
-                if (dao.registerUser(registeredId, new String(pwF.getPassword()), nickF.getText())) {
-                    JOptionPane.showMessageDialog(this, "환영합니다! 가입이 완료되었습니다.");
-                    parent.setRegisteredId(registeredId);
-                    dispose();
+            joinB.setEnabled(false);
+            new Thread(() -> {
+                try {
+                    if (dao.registerUser(registeredId, new String(pwF.getPassword()), nickF.getText())) {
+                        SwingUtilities.invokeLater(() -> {
+                            JOptionPane.showMessageDialog(this, "환영합니다! 가입이 완료되었습니다.");
+                            parent.setRegisteredId(registeredId);
+                            dispose();
+                        });
+                    }
+                } catch (SQLException ex) { 
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(this, "오류가 발생했습니다: " + ex.getMessage());
+                        joinB.setEnabled(true);
+                    });
                 }
-            } catch (SQLException ex) { 
-                JOptionPane.showMessageDialog(this, "오류가 발생했습니다.");
-            }
+            }).start();
         }
     }
 

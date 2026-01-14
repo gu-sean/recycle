@@ -35,6 +35,7 @@ public class HomeDashboard extends JPanel {
     private double animationFactor = 0.0;
     private Timer chartTimer;
 
+    // 네온 테마 컬러
     private static final Color BG_DARK = new Color(13, 11, 25);
     private static final Color CARD_BG = new Color(22, 21, 44);
     private static final Color POINT_CYAN = new Color(0, 240, 255);
@@ -61,7 +62,7 @@ public class HomeDashboard extends JPanel {
     }
 
     public void updateAllData() {
-    
+        // 1. 로딩 상태 시각화 시작
         setLoadingState();
 
         SwingUtilities.invokeLater(() -> {
@@ -69,6 +70,7 @@ public class HomeDashboard extends JPanel {
                 UserDAO userDao = new UserDAO();
                 RecycleLogDAO logDao = new RecycleLogDAO();
                 
+                // DB에서 최신 데이터 로드
                 UserDTO latestUser = userDao.getUserById(user.getUserId());
                 
                 if (latestUser == null) {
@@ -79,9 +81,11 @@ public class HomeDashboard extends JPanel {
                 Map<DayOfWeek, Integer> stats = logDao.getWeeklyStats(user.getUserId());
                 int logCount = logDao.getLogCountByUserId(user.getUserId());
 
+                // 2. 데이터 업데이트 및 동기화
                 this.user = latestUser;
                 this.targetPoints = user.getBalancePoints();
                 
+                // 3. UI 라벨 즉시 확정
                 balanceLabel.setText(String.format("%,d P", targetPoints)); 
                 co2ValueLabel.setText(String.format("%.2f kg", logCount * 0.42));
                 treeValueLabel.setText(String.format("%.2f 그루", logCount * 0.15));
@@ -91,10 +95,12 @@ public class HomeDashboard extends JPanel {
                 updateGradeUI(targetPoints);
                 updateMotivationMessage(stats.getOrDefault(LocalDate.now().getDayOfWeek(), 0));
 
+                // 4. 애니메이션 시작
                 startPointAnimation();
                 updateWeeklyChart(stats);
                 startChartAnimation();
 
+                // 등급 상승 체크
                 if (!this.lastGrade.isEmpty() && !this.lastGrade.equals(currentGrade)) {
                     showGradeUpPopup(currentGrade);
                 }
@@ -316,7 +322,6 @@ public class HomeDashboard extends JPanel {
     }
 
     private void startPointAnimation() {
-       
         displayPoints = 0; 
         Timer timer = new Timer(25, null);
         timer.addActionListener(e -> {

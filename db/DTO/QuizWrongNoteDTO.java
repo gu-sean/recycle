@@ -20,6 +20,7 @@ public class QuizWrongNoteDTO {
         this.createdAt = LocalDate.now();
     }
 
+    // Getter & Setter
     public String getQuestionText() { return questionText; }
     public String getSelectedAnswer() { return selectedAnswer; }
     public String getCorrectAnswer() { return correctAnswer; }

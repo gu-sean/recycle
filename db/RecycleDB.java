@@ -8,7 +8,6 @@ import java.util.Map;
 
 import javax.swing.JOptionPane;
 
-
 public class RecycleDB {
 
     private static final String DB_URL ="";
@@ -28,8 +27,3 @@ public class RecycleDB {
         return DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
     }
 }
-
-
-
-
-

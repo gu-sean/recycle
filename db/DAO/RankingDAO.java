@@ -1,44 +1,77 @@
 package db.DAO;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
 import db.RecycleDB;
 import db.DTO.RankingDTO; 
 
+
 public class RankingDAO {
 
-   
-    public List<RankingDTO> getTopRankings() throws SQLException {
+    /**
+     * 상위 랭킹 사용자를 가져옵니다.
+     */
+    public List<RankingDTO> getTopRankings(int limit) {
         List<RankingDTO> rankings = new ArrayList<>();
 
         String sql = "SELECT USER_ID, NICKNAME, TOTAL_POINTS " + 
                      "FROM USERS " +
-                     "ORDER BY TOTAL_POINTS DESC, USER_ID ASC"; 
+                     "ORDER BY TOTAL_POINTS DESC, USER_ID ASC " +
+                     "LIMIT ?"; 
         
         try (Connection conn = RecycleDB.connect(); 
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
-            while (rs.next()) {
-                String userId = rs.getString("USER_ID");
-                String nickname = rs.getString("NICKNAME");
-           
-                int points = rs.getInt("TOTAL_POINTS"); 
-                
-                RankingDTO dto = new RankingDTO(userId, nickname, points);
-                
-                rankings.add(dto);
+            pstmt.setInt(1, limit);
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                int currentRank = 1; 
+                while (rs.next()) {
+                    String userId = rs.getString("USER_ID");
+                    String nickname = rs.getString("NICKNAME");
+                    int points = rs.getInt("TOTAL_POINTS"); 
+   
+                    rankings.add(new RankingDTO(
+                        currentRank++, 
+                        userId, 
+                        nickname, 
+                        points, 
+                        null 
+                    ));
+                }
             }
         } catch (SQLException e) {
-            System.err.println("❌ DB에서 랭킹을 가져오는 중 오류 발생: " + e.getMessage());
-            throw e;
+            System.err.println("❌ RankingDAO 오류: " + e.getMessage());
         }
         
         return rankings;
+    }
+
+    /**
+     * 특정 사용자의 현재 순위를 조회합니다.
+     */
+    public int getUserRank(String userId) {
+        String sql = "SELECT COUNT(*) + 1 FROM USERS WHERE TOTAL_POINTS > " +
+                     "(SELECT TOTAL_POINTS FROM USERS WHERE USER_ID = ?)";
+        
+        try (Connection conn = RecycleDB.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            System.err.println("❌ 순위 조회 오류: " + e.getMessage());
+        }
+        return 0; 
+    }
+
+    public List<RankingDTO> getTopRankings() {
+        return getTopRankings(50);
     }
 }

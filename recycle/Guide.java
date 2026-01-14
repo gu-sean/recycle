@@ -12,7 +12,7 @@ import java.util.*;
 import java.util.List;
 
 import db.DAO.GuideDAO;
-import db.DAO.GuideDAO.ItemDetail;
+import db.DTO.GuideDTO; 
 
 public class Guide extends JPanel {
 
@@ -27,7 +27,7 @@ public class Guide extends JPanel {
     private DefaultListModel<String> categoryListModel, itemListModel;
     private JEditorPane editorPane;
     private JScrollPane detailScrollPane; 
-    private JPanel centerCardPanel;       
+    private JPanel centerCardPanel;        
     private CardLayout cardLayout;
     private JSplitPane leftSplit, mainSplit; 
     
@@ -79,8 +79,9 @@ public class Guide extends JPanel {
 
         mainTabbedPane = new JTabbedPane();
         mainTabbedPane.setUI(new CustomTabbedPaneUI());
-        mainTabbedPane.setFont(new Font("맑은 고딕", Font.BOLD, 13));
-        mainTabbedPane.setPreferredSize(new Dimension(Short.MAX_VALUE, 40));
+        mainTabbedPane.setFont(new Font("맑은 고딕", Font.BOLD, 14));
+        mainTabbedPane.setForeground(Color.WHITE);
+        mainTabbedPane.setPreferredSize(new Dimension(Short.MAX_VALUE, 45));
 
         String[] tabs = {"재활용폐기물", "음식물류폐기물", "일반종량제폐기물", "불연성종량제폐기물", "대형폐기물", "공사장 생활폐기물", "생활계 유해폐기물", "기타"};
         for (String tab : tabs) mainTabbedPane.addTab(tab, null);
@@ -167,7 +168,8 @@ public class Guide extends JPanel {
         String selCat = categoryList.getSelectedValue();
         if (selItem != null && selCat != null) {
             try {
-                ItemDetail detail = GuideDAO.getItemDetail(selItem, selCat);
+           
+                GuideDTO detail = GuideDAO.getItemDetail(selItem, selCat);
                 if (detail != null) {
                     updateDetailWithImages(detail);
                 }
@@ -175,13 +177,25 @@ public class Guide extends JPanel {
         }
     }
 
-    
-    private void updateDetailWithImages(ItemDetail item) {
+    private void updateDetailWithImages(GuideDTO item) {
+   
         String projectPath = System.getProperty("user.dir").replace("\\", "/");
-        String baseUrl = "file:///" + projectPath + "/src/main/webapp/";
+   
+        String baseUrl;
+   
+        if (new java.io.File(projectPath + "/src/main/webapp").exists()) {
+            baseUrl = "file:///" + projectPath + "/src/main/webapp/";
+        } else {
         
-        String itemImg = (item.itemImagePath != null) ? item.itemImagePath : "";
-        String markImg = (item.markImagePath != null) ? item.markImagePath : "";
+            baseUrl = "file:///" + projectPath + "/";
+        }
+
+        String itemImg = (item.getItemImagePath() != null) ? item.getItemImagePath() : "";
+        String markImg = (item.getMarkImagePath() != null) ? item.getMarkImagePath() : "";
+        
+       
+        itemImg = itemImg.replace("src/main/webapp/", "").replace("src/", "");
+        markImg = markImg.replace("src/main/webapp/", "").replace("src/", "");
 
         StringBuilder html = new StringBuilder();
         html.append("<html><head><style>");
@@ -193,11 +207,13 @@ public class Guide extends JPanel {
         html.append("<table class='title-table' border='0' cellspacing='0' cellpadding='0'>");
         html.append("  <tr>");
         html.append("    <td align='left' valign='bottom' style='padding-bottom:10px;'>");
-        html.append("      <span style='color: #00fff0; font-size: 24px; font-weight: bold;'>").append(item.itemName).append("</span>");
+        html.append("      <span style='color: #00fff0; font-size: 24px; font-weight: bold;'>").append(item.getItemName()).append("</span>");
         html.append("    </td>");
+        
         if (!markImg.isEmpty()) {
-            html.append("    <td align='right' valign='middle'>");
-            html.append("      <img src='").append(baseUrl).append(markImg).append("' width='50' height='50'>");
+            html.append("    <td align='right' valign='top' style='padding-bottom: 10px;'>");
+          
+            html.append("      <img src='").append(baseUrl).append(markImg).append("' width='68' height='68' >");
             html.append("    </td>");
         }
         html.append("  </tr>");
@@ -205,12 +221,13 @@ public class Guide extends JPanel {
 
         if (!itemImg.isEmpty()) {
             html.append("<div style='text-align: center; margin-bottom: 20px;'>");
-            html.append("  <img src='").append(baseUrl).append(itemImg).append("' width='250' style='border: 2px solid #3d3d70; border-radius: 15px;'>");
+       
+            html.append("  <img src='").append(baseUrl).append(itemImg).append("' style='border: 2px solid #3d3d70; border-radius: 15px;'>");
             html.append("</div>");
         }
 
         html.append("<div class='content-box'>");
-        html.append(item.disposalGuide);
+        html.append(item.getContent());
         html.append("</div>");
 
         html.append("</body></html>");
@@ -250,12 +267,17 @@ public class Guide extends JPanel {
         String keyword = searchField.getText().trim();
         if (keyword.isEmpty()) return;
         try {
-            List<ItemDetail> allItems = GuideDAO.getAllItems();
-            ItemDetail found = allItems.stream().filter(i -> i.itemName.contains(keyword)).findFirst().orElse(null);
+            // [수정] GuideDTO 리스트로 받기
+            List<GuideDTO> allItems = GuideDAO.getAllItems();
+            GuideDTO found = allItems.stream()
+                .filter(i -> i.getItemName().contains(keyword))
+                .findFirst().orElse(null);
+                
             if (found != null) {
                 mainTabbedPane.setSelectedIndex(0);
-                categoryList.setSelectedValue(found.categoryName, true);
-                itemList.setSelectedValue(found.itemName, true);
+             
+                categoryList.setSelectedValue(found.getCategoryName(), true);
+                itemList.setSelectedValue(found.getItemName(), true);
             } else {
                 JOptionPane.showMessageDialog(this, "'" + keyword + "'에 대한 검색 결과가 없습니다.", "검색 알림", JOptionPane.INFORMATION_MESSAGE);
             }
@@ -271,13 +293,24 @@ public class Guide extends JPanel {
         } catch (SQLException e) { e.printStackTrace(); }
     }
 
+   
     private class CustomTabbedPaneUI extends BasicTabbedPaneUI {
         @Override protected void installDefaults() { super.installDefaults(); contentBorderInsets = new Insets(0, 0, 0, 0); }
         @Override protected void paintTabBackground(Graphics g, int tp, int ti, int x, int y, int w, int h, boolean isSel) {
-            g.setColor(isSel ? BG_PANEL : BG_DARK); g.fillRect(x, y, w, h);
+            g.setColor(isSel ? BG_PANEL : BG_DARK); 
+            g.fillRect(x, y, w, h);
             if (isSel) { g.setColor(POINT_CYAN); g.fillRect(x, y + h - 3, w, 3); }
         }
+        @Override
+        protected void paintText(Graphics g, int tabPlacement, Font font, FontMetrics metrics, int tabIndex, String title, Rectangle textRect, boolean isSelected) {
+            g.setFont(font);
+            g.setColor(isSelected ? POINT_CYAN : Color.WHITE);
+            int x = textRect.x;
+            int y = textRect.y + metrics.getAscent();
+            g.drawString(title, x, y);
+        }
         @Override protected void paintContentBorder(Graphics g, int tp, int si) {}
+        @Override protected void paintTabBorder(Graphics g, int tp, int ti, int x, int y, int w, int h, boolean isSel) {}
     }
 
     private JScrollPane createStyledScrollPane(Component view, String title) {
