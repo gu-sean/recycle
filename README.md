@@ -27,4 +27,4 @@
 
     자원 순환: 획득한 포인트로 보상을 얻는 가상 경험을 제공합니다.
 
-https://dirty-shoes-work.loca.lt
+
