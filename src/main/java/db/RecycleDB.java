@@ -7,9 +7,9 @@ import java.sql.SQLException;
 public class RecycleDB {
 
     // DB 접속 정보
-    private static final String DB_URL ="jdbc:mysql://localhost:3306/recycle?serverTimezone=Asia/Seoul&characterEncoding=UTF-8";
-    private static final String DB_USER = "root";
-    private static final String DB_PASSWORD = "fjf0301!";
+    private static final String DB_URL ="";
+    private static final String DB_USER = "";
+    private static final String DB_PASSWORD = "";
 
     /**
      * DB 연결을 시도하고 Connection 객체를 반환합니다.
